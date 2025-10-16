@@ -4,115 +4,125 @@ let matches = [];
 let currentRound = 1;
 let totalRounds = 0;
 let refreshIntervalId = null;
+const REFRESH_INTERVAL = 30000; // 30 seconds
+const RATING_INCREMENT = 100;
 
-// Initialize when DOM is loaded
-document.addEventListener('DOMContentLoaded', initialize);
-
-function initialize() {
+// Initialize the application
+document.addEventListener('DOMContentLoaded', function() {
     // Set up event listeners
     document.getElementById('generate-fields').addEventListener('click', generatePlayerFields);
     document.getElementById('start-tournament').addEventListener('click', startTournament);
     document.getElementById('next-round').addEventListener('click', startNextRound);
     document.getElementById('toggle-leaderboard').addEventListener('click', toggleLeaderboard);
     document.getElementById('show-tournament').addEventListener('click', showTournament);
-    
-    // Add refresh button to tournament header
-    const refreshButton = document.createElement('button');
-    refreshButton.id = 'refresh-status';
-    refreshButton.textContent = 'Refresh Status';
-    refreshButton.addEventListener('click', refreshMatchStatus);
-    document.querySelector('.round-info').appendChild(refreshButton);
-}
+});
 
+// Generate player input fields based on the number specified
 function generatePlayerFields() {
     const numPlayers = parseInt(document.getElementById('num-players').value);
     
-    // Validate number of players
-    if (isNaN(numPlayers) || numPlayers < 2 || numPlayers % 2 !== 0) {
-        alert('Please enter a valid even number of players (minimum 2)');
+    if (!numPlayers || numPlayers < 2 || numPlayers % 2 !== 0) {
+        alert('Please enter an even number of players (minimum 2)');
         return;
     }
     
     const playerFieldsContainer = document.getElementById('player-fields');
     playerFieldsContainer.innerHTML = '';
     
-    // Generate input fields for each player
     for (let i = 1; i <= numPlayers; i++) {
         const playerRow = document.createElement('div');
         playerRow.className = 'player-row';
         
-        playerRow.innerHTML = `
-            <div class="player-number">Player ${i}</div>
-            <div class="player-name">
-                <label for="player-name-${i}">Name:</label>
-                <input type="text" id="player-name-${i}" placeholder="Player ${i} Name" required>
-            </div>
-            <div class="player-id">
-                <label for="player-id-${i}">AtCoder ID:</label>
-                <div style="display: flex; align-items: center;">
-                    <input type="text" id="player-id-${i}" placeholder="AtCoder ID" required>
-                    <button class="verify-btn" data-player="${i}">Verify</button>
-                    <span class="verify-status" id="verify-status-${i}"></span>
-                </div>
-            </div>
-        `;
+        const playerNumber = document.createElement('div');
+        playerNumber.className = 'player-number';
+        playerNumber.textContent = `Player ${i}:`;
+        
+        const playerName = document.createElement('div');
+        playerName.className = 'player-name';
+        const nameInput = document.createElement('input');
+        nameInput.type = 'text';
+        nameInput.id = `player-name-${i}`;
+        nameInput.placeholder = 'Enter Player Name';
+        playerName.appendChild(nameInput);
+        
+        const playerIdContainer = document.createElement('div');
+        playerIdContainer.className = 'player-id';
+        const idInput = document.createElement('input');
+        idInput.type = 'text';
+        idInput.id = `player-id-${i}`;
+        idInput.placeholder = 'Enter AtCoder ID';
+        
+        const verifyButton = document.createElement('button');
+        verifyButton.className = 'verify-btn';
+        verifyButton.textContent = 'Verify';
+        verifyButton.setAttribute('data-player', i);
+        verifyButton.addEventListener('click', verifyAtCoderid);
+        
+        const verifyStatus = document.createElement('span');
+        verifyStatus.className = 'verify-status';
+        verifyStatus.id = `verify-status-${i}`;
+        
+        playerIdContainer.appendChild(idInput);
+        playerIdContainer.appendChild(verifyButton);
+        playerIdContainer.appendChild(verifyStatus);
+        
+        playerRow.appendChild(playerNumber);
+        playerRow.appendChild(playerName);
+        playerRow.appendChild(playerIdContainer);
         
         playerFieldsContainer.appendChild(playerRow);
     }
     
-    // Add event listeners to verify buttons
-    document.querySelectorAll('.verify-btn').forEach(button => {
-        button.addEventListener('click', verifyAtCoderId);
-    });
-    
-    // Enable start tournament button
     document.getElementById('start-tournament').disabled = false;
 }
 
-async function verifyAtCoderId(event) {
-    const playerNum = event.target.dataset.player;
-    const idInput = document.getElementById(`player-id-${playerNum}`);
+// Verify if an AtCoder ID exists
+async function verifyAtCoderid(e) {
+    const playerNum = e.target.getAttribute('data-player');
+    const atcoderId = document.getElementById(`player-id-${playerNum}`).value.trim();
     const statusElement = document.getElementById(`verify-status-${playerNum}`);
     
-    const atcoderId = idInput.value.trim();
     if (!atcoderId) {
-        statusElement.textContent = 'Please enter an ID';
+        statusElement.textContent = 'Please enter an AtCoder ID';
         statusElement.className = 'verify-status error';
         return;
     }
     
+    // Show verification in progress
+    e.target.disabled = true;
     statusElement.textContent = 'Verifying...';
     statusElement.className = 'verify-status pending';
     
     try {
-        // Fetch user data from AtCoder API (using proxy if needed)
-        const response = await fetch(`https://kenkoooo.com/atcoder/atcoder-api/v3/user/detail?user=${atcoderId}`);
+        // Use the same API endpoint as in timepass.html
+        const response = await fetch(`https://kenkoooo.com/atcoder/atcoder-api/v3/user/submissions?user=${atcoderId}&from_second=0`);
         
-        if (response.ok) {
-            const userData = await response.json();
-            if (userData) {
-                statusElement.textContent = 'Valid ID';
-                statusElement.className = 'verify-status success';
-            } else {
-                statusElement.textContent = 'Invalid ID';
-                statusElement.className = 'verify-status error';
-            }
-        } else {
-            statusElement.textContent = 'Invalid ID';
+        if (!response.ok) {
+            throw new Error('Failed to verify user');
+        }
+        
+        const submissions = await response.json();
+        
+        if (submissions.length === 0) {
+            statusElement.textContent = 'No submissions found';
             statusElement.className = 'verify-status error';
+        } else {
+            statusElement.textContent = '✓ Valid';
+            statusElement.className = 'verify-status success';
         }
     } catch (error) {
-        console.error('Error verifying AtCoder ID:', error);
-        statusElement.textContent = 'Error verifying';
+        statusElement.textContent = 'Invalid ID';
         statusElement.className = 'verify-status error';
+    } finally {
+        e.target.disabled = false;
     }
 }
 
+// Start the tournament with entered players
 function startTournament() {
     const numPlayers = parseInt(document.getElementById('num-players').value);
     players = [];
     
-    // Gather player information
     for (let i = 1; i <= numPlayers; i++) {
         const nameInput = document.getElementById(`player-name-${i}`);
         const idInput = document.getElementById(`player-id-${i}`);
@@ -132,69 +142,80 @@ function startTournament() {
         });
     }
     
-    // Calculate total rounds needed
-    totalRounds = Math.log2(players.length);
+    totalRounds = Math.ceil(Math.log2(players.length));
     
-    // Show tournament section
     document.getElementById('setup-section').classList.remove('active');
     document.getElementById('setup-section').classList.add('hidden');
     document.getElementById('tournament-section').classList.remove('hidden');
     document.getElementById('tournament-section').classList.add('active');
+    document.getElementById('current-round').textContent = currentRound;
     
-    // Start first round
     createMatches();
     displayMatches();
-    
-    // Start auto-refresh
     startAutoRefresh();
 }
 
+// Create matches for the current round
 function createMatches() {
     matches = [];
     
     // If this is the first round, randomly pair players
     if (currentRound === 1) {
-        // Shuffle players
+        // Shuffle players for random pairing
         const shuffledPlayers = [...players].sort(() => Math.random() - 0.5);
         
-        // Create matches
+        // Create pairs
         for (let i = 0; i < shuffledPlayers.length; i += 2) {
-            matches.push({
-                id: matches.length + 1,
-                player1: shuffledPlayers[i],
-                player2: shuffledPlayers[i + 1],
-                problemId: getRandomProblem(),
-                winner: null,
-                player1Solved: false,
-                player2Solved: false,
-                player1Time: null,
-                player2Time: null
-            });
+            if (i + 1 < shuffledPlayers.length) {
+                const problem = getRandomProblem();
+                matches.push({
+                    id: matches.length + 1,
+                    player1: shuffledPlayers[i],
+                    player2: shuffledPlayers[i + 1],
+                    problem: problem,
+                    status: 'in_progress',
+                    winner: null,
+                    player1Solved: false,
+                    player2Solved: false,
+                    player1Time: null,
+                    player2Time: null
+                });
+            }
         }
     } else {
-        // Sort players by rating for subsequent rounds
-        const activePlayers = players.filter(p => p.active !== false).sort((a, b) => b.rating - a.rating);
+        // In later rounds, pair players by similar rating
+        const roundWinners = players.filter(p => p.wins === currentRound - 1);
+        roundWinners.sort((a, b) => a.rating - b.rating);
         
-        // Create matches based on rating
-        for (let i = 0; i < activePlayers.length; i += 2) {
-            matches.push({
-                id: matches.length + 1,
-                player1: activePlayers[i],
-                player2: activePlayers[i + 1],
-                problemId: getRandomProblem(),
-                winner: null,
-                player1Solved: false,
-                player2Solved: false,
-                player1Time: null,
-                player2Time: null
-            });
+        // Create pairs based on rating
+        for (let i = 0; i < roundWinners.length; i += 2) {
+            if (i + 1 < roundWinners.length) {
+                const problem = getRandomProblem();
+                matches.push({
+                    id: matches.length + 1,
+                    player1: roundWinners[i],
+                    player2: roundWinners[i + 1],
+                    problem: problem,
+                    status: 'in_progress',
+                    winner: null,
+                    player1Solved: false,
+                    player2Solved: false,
+                    player1Time: null,
+                    player2Time: null
+                });
+            }
         }
     }
 }
 
+// Get a random AtCoder problem
 function getRandomProblem() {
-    // Sample AtCoder problems
-    const contestIds = ['abc150', 'abc151', 'abc152', 'abc153', 'abc154', 'abc155'];
+    // List of AtCoder contests
+    const contestIds = [
+        'abc150', 'abc151', 'abc152', 'abc153', 'abc154', 'abc155',
+        'abc156', 'abc157', 'abc158', 'abc159', 'abc160'
+    ];
+    
     const taskIds = ['a', 'b', 'c', 'd'];
     
     const contestId = contestIds[Math.floor(Math.random() * contestIds.length)];
@@ -203,11 +224,12 @@ function getRandomProblem() {
     
     return {
         id: problemId,
-        url: `https://atcoder.jp/contests/${contestId}/tasks/${contestId}_${taskId}`,
-        name: `${contestId.toUpperCase()} - Problem ${taskId.toUpperCase()}`
+        url: `https://atcoder.jp/contests/${contestId}/tasks/${problemId}`,
+        name: `${contestId.toUpperCase()} Problem ${taskId.toUpperCase()}`
     };
 }
 
+// Display matches in the UI
 function displayMatches() {
     const matchesContainer = document.getElementById('matches-container');
     matchesContainer.innerHTML = '';
@@ -217,316 +239,401 @@ function displayMatches() {
         matchCard.className = 'match-card';
         matchCard.id = `match-${match.id}`;
         
-        matchCard.innerHTML = `
-            <div class="match-header">Match ${match.id}</div>
-            <div class="problem-info">${match.problemId.name}</div>
-            <a href="${match.problemId.url}" class="problem-link" target="_blank">View Problem</a>
-            
-            <div class="player ${match.player1Solved ? 'solved' : ''}" id="player1-match-${match.id}">
-                <div class="player-info">
-                    <span class="player-name-display">${match.player1.name}</span>
-                    <span class="player-rating">Rating: ${match.player1.rating}</span>
-                </div>
-                <div>AtCoder ID: ${match.player1.atcoderId}</div>
-                <div class="submission-status" id="status1-match-${match.id}">
-                    ${match.player1Solved ? `Solved in ${formatTime(match.player1Time)}` : 'Not solved yet'}
-                </div>
-            </div>
-            
-            <div class="versus">VS</div>
-            
-            <div class="player ${match.player2Solved ? 'solved' : ''}" id="player2-match-${match.id}">
-                <div class="player-info">
-                    <span class="player-name-display">${match.player2.name}</span>
-                    <span class="player-rating">Rating: ${match.player2.rating}</span>
-                </div>
-                <div>AtCoder ID: ${match.player2.atcoderId}</div>
-                <div class="submission-status" id="status2-match-${match.id}">
-                    ${match.player2Solved ? `Solved in ${formatTime(match.player2Time)}` : 'Not solved yet'}
-                </div>
-            </div>
-        `;
+        if (match.status === 'completed') {
+            if (match.winner === match.player1.id) {
+                matchCard.classList.add('player1-won');
+            } else {
+                matchCard.classList.add('player2-won');
+            }
+        }
+        
+        // Match header
+        const matchHeader = document.createElement('div');
+        matchHeader.className = 'match-header';
+        matchHeader.textContent = `Match ${match.id}`;
+        
+        // Problem info
+        const problemInfo = document.createElement('div');
+        problemInfo.className = 'problem-info';
+        problemInfo.textContent = match.problem.name;
+        
+        // Player 1
+        const player1 = document.createElement('div');
+        player1.className = 'player';
+        player1.id = `player1-${match.id}`;
+        if (match.player1Solved) {
+            player1.classList.add('solved');
+            if (match.winner === match.player1.id) {
+                player1.classList.add('winner');
+            }
+        }
+        
+        const player1Info = document.createElement('div');
+        player1Info.className = 'player-info';
+        
+        const player1Name = document.createElement('span');
+        player1Name.className = 'player-name-display';
+        player1Name.textContent = match.player1.name;
+        
+        const player1Rating = document.createElement('span');
+        player1Rating.className = 'player-rating';
+        player1Rating.textContent = match.player1.rating;
+        
+        player1Info.appendChild(player1Name);
+        player1Info.appendChild(player1Rating);
+        
+        const player1Status = document.createElement('div');
+        player1Status.className = 'submission-status';
+        player1Status.id = `player1-status-${match.id}`;
+        player1Status.textContent = match.player1Solved ? 
+            `Solved in ${formatTime(match.player1Time)}` : 'Not solved yet';
+        
+        player1.appendChild(player1Info);
+        player1.appendChild(player1Status);
+        
+        // Versus
+        const versus = document.createElement('div');
+        versus.className = 'versus';
+        versus.textContent = 'VS';
+        
+        // Player 2
+        const player2 = document.createElement('div');
+        player2.className = 'player';
+        player2.id = `player2-${match.id}`;
+        if (match.player2Solved) {
+            player2.classList.add('solved');
+            if (match.winner === match.player2.id) {
+                player2.classList.add('winner');
+            }
+        }
+        
+        const player2Info = document.createElement('div');
+        player2Info.className = 'player-info';
+        
+        const player2Name = document.createElement('span');
+        player2Name.className = 'player-name-display';
+        player2Name.textContent = match.player2.name;
+        
+        const player2Rating = document.createElement('span');
+        player2Rating.className = 'player-rating';
+        player2Rating.textContent = match.player2.rating;
+        
+        player2Info.appendChild(player2Name);
+        player2Info.appendChild(player2Rating);
+        
+        const player2Status = document.createElement('div');
+        player2Status.className = 'submission-status';
+        player2Status.id = `player2-status-${match.id}`;
+        player2Status.textContent = match.player2Solved ? 
+            `Solved in ${formatTime(match.player2Time)}` : 'Not solved yet';
+        
+        player2.appendChild(player2Info);
+        player2.appendChild(player2Status);
+        
+        // Problem link
+        const problemLink = document.createElement('a');
+        problemLink.href = match.problem.url;
+        problemLink.className = 'problem-link';
+        problemLink.textContent = 'View Problem';
+        problemLink.target = '_blank';
+        
+        // Assemble match card
+        matchCard.appendChild(matchHeader);
+        matchCard.appendChild(problemInfo);
+        matchCard.appendChild(player1);
+        matchCard.appendChild(versus);
+        matchCard.appendChild(player2);
+        matchCard.appendChild(problemLink);
         
         matchesContainer.appendChild(matchCard);
     });
-    
-    // Update the current round display
-    document.getElementById('current-round').textContent = currentRound;
 }
 
+// Format time in MM:SS
 function formatTime(seconds) {
-    if (seconds === null) return '';
-    
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes}m ${remainingSeconds}s`;
+    if (!seconds) return '--:--';
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 }
 
+// Start automatically refreshing match status
 function startAutoRefresh() {
-    // Clear any existing interval
+    // Immediately check once
+    checkSubmissions();
+    
+    // Then set up interval
     if (refreshIntervalId) {
         clearInterval(refreshIntervalId);
     }
     
-    // Set up auto-refresh every 30 seconds
-    refreshIntervalId = setInterval(refreshMatchStatus, 30000);
+    refreshIntervalId = setInterval(checkSubmissions, REFRESH_INTERVAL);
     
-    // Do an initial refresh
-    refreshMatchStatus();
-}
-
-async function refreshMatchStatus() {
-    const loadingMessage = document.createElement('div');
-    loadingMessage.className = 'loading-message';
-    loadingMessage.textContent = 'Refreshing match status...';
-    document.getElementById('matches-container').prepend(loadingMessage);
+    // Add a refresh button to the tournament header
+    const roundInfo = document.querySelector('.round-info');
     
-    try {
-        let allMatchesResolved = true;
-        
-        for (const match of matches) {
-            if (match.winner) continue; // Skip matches that already have a winner
-            
-            // Check submissions for both players
-            const [player1Status, player2Status] = await Promise.all([
-                checkSubmissionStatus(match.player1.atcoderId, match.problemId.id),
-                checkSubmissionStatus(match.player2.atcoderId, match.problemId.id)
-            ]);
-            
-            // Update match data
-            if (player1Status.solved && !match.player1Solved) {
-                match.player1Solved = true;
-                match.player1Time = player1Status.timeTaken;
-                updateMatchDisplay(match);
-            }
-            
-            if (player2Status.solved && !match.player2Solved) {
-                match.player2Solved = true;
-                match.player2Time = player2Status.timeTaken;
-                updateMatchDisplay(match);
-            }
-            
-            // Determine winner
-            if (match.player1Solved && !match.player2Solved) {
-                declareWinner(match, match.player1, match.player2);
-            } else if (match.player2Solved && !match.player1Solved) {
-                declareWinner(match, match.player2, match.player1);
-            } else if (match.player1Solved && match.player2Solved) {
-                if (match.player1Time < match.player2Time) {
-                    declareWinner(match, match.player1, match.player2);
-                } else {
-                    declareWinner(match, match.player2, match.player1);
-                }
-            } else {
-                allMatchesResolved = false;
-            }
-        }
-        
-        // If all matches are resolved, enable next round button
-        if (allMatchesResolved && matches.length > 0) {
-            document.getElementById('next-round').disabled = false;
-        }
-    } catch (error) {
-        console.error('Error refreshing match status:', error);
-        const errorMessage = document.createElement('div');
-        errorMessage.className = 'error-message';
-        errorMessage.textContent = 'Error refreshing match status. Please try again.';
-        document.getElementById('matches-container').prepend(errorMessage);
-        
-        setTimeout(() => errorMessage.remove(), 5000);
-    } finally {
-        loadingMessage.remove();
+    // Only add if it doesn't exist yet
+    if (!document.getElementById('refresh-button')) {
+        const refreshButton = document.createElement('button');
+        refreshButton.id = 'refresh-button';
+        refreshButton.textContent = 'Refresh Now';
+        refreshButton.addEventListener('click', checkSubmissions);
+        roundInfo.appendChild(refreshButton);
     }
 }
 
-async function checkSubmissionStatus(atcoderId, problemId) {
-    try {
-        // Using the unofficial AtCoder API
-        // Format: https://kenkoooo.com/atcoder/atcoder-api/v3/user/submissions?user=USERNAME&from_second=0
-        const response = await fetch(`https://kenkoooo.com/atcoder/atcoder-api/v3/user/submissions?user=${atcoderId}`);
-        
-        if (!response.ok) {
-            throw new Error('Failed to fetch submission data');
-        }
-        
-        const submissions = await response.json();
-        
-        // Find submissions for the specific problem
-        const problemSubmissions = submissions.filter(sub => 
-            sub.problem_id === problemId && sub.result === 'AC'
-        );
-        
-        if (problemSubmissions.length > 0) {
-            // Sort by timestamp to get the earliest accepted solution
-            problemSubmissions.sort((a, b) => a.epoch_second - b.epoch_second);
-            
-            // Calculate time taken (from the start of the tournament)
-            // In a real implementation, you would track the exact start time
-            const timeTaken = calculateTimeTaken(problemSubmissions[0].epoch_second);
-            
-            return {
-                solved: true,
-                timeTaken: timeTaken
-            };
-        } else {
-            return {
-                solved: false,
-                timeTaken: null
-            };
-        }
-    } catch (error) {
-        console.error(`Error checking submission for ${atcoderId}:`, error);
-        return {
-            solved: false,
-            timeTaken: null
-        };
+// Stop the auto-refresh
+function stopAutoRefresh() {
+    if (refreshIntervalId) {
+        clearInterval(refreshIntervalId);
+        refreshIntervalId = null;
     }
 }
 
-function calculateTimeTaken(submissionTimestamp) {
-    // This function should calculate time from tournament start
-    // For demo purposes, we'll use a mock time
-    const mockStartTime = Math.floor(Date.now() / 1000) - 3600; // Assume started 1 hour ago
-    return submissionTimestamp - mockStartTime;
-}
-
-function declareWinner(match, winner, loser) {
-    match.winner = winner.id;
+// Check for submissions from all players
+async function checkSubmissions() {
+    // Only check ongoing matches
+    const ongoingMatches = matches.filter(match => match.status === 'in_progress');
     
-    // Update player stats
-    winner.wins++;
-    winner.rating += 100;
-    winner.matches++;
-    loser.matches++;
-    
-    // Mark loser as inactive for future rounds
-    loser.active = false;
-    
-    // Update UI
-    updateMatchDisplay(match);
-    
-    // Check if all matches have winners
-    const allMatchesComplete = matches.every(m => m.winner !== null);
-    if (allMatchesComplete) {
-        document.getElementById('next-round').disabled = false;
-    }
-}
-
-function updateMatchDisplay(match) {
-    // Update player 1 display
-    const player1Element = document.getElementById(`player1-match-${match.id}`);
-    const status1Element = document.getElementById(`status1-match-${match.id}`);
-    
-    if (match.player1Solved) {
-        player1Element.classList.add('solved');
-        status1Element.textContent = `Solved in ${formatTime(match.player1Time)}`;
-        
-        if (!player1Element.querySelector('.time-taken')) {
-            const timeElement = document.createElement('div');
-            timeElement.className = 'time-taken';
-            timeElement.textContent = formatTime(match.player1Time);
-            player1Element.appendChild(timeElement);
-        }
-    }
-    
-    // Update player 2 display
-    const player2Element = document.getElementById(`player2-match-${match.id}`);
-    const status2Element = document.getElementById(`status2-match-${match.id}`);
-    
-    if (match.player2Solved) {
-        player2Element.classList.add('solved');
-        status2Element.textContent = `Solved in ${formatTime(match.player2Time)}`;
-        
-        if (!player2Element.querySelector('.time-taken')) {
-            const timeElement = document.createElement('div');
-            timeElement.className = 'time-taken';
-            timeElement.textContent = formatTime(match.player2Time);
-            player2Element.appendChild(timeElement);
-        }
-    }
-    
-    // Highlight winner
-    const matchElement = document.getElementById(`match-${match.id}`);
-    
-    if (match.winner === match.player1.id) {
-        player1Element.classList.add('winner');
-        matchElement.classList.add('player1-won');
-    } else if (match.winner === match.player2.id) {
-        player2Element.classList.add('winner');
-        matchElement.classList.add('player2-won');
-    }
-}
-
-function startNextRound() {
-    // Filter out players who lost
-    players = players.filter(player => player.active !== false);
-    
-    // Check if tournament is complete
-    if (players.length === 1) {
-        alert(`Tournament complete! Champion: ${players[0].name}`);
-        showLeaderboard();
+    if (ongoingMatches.length === 0) {
         return;
     }
     
-    // Start next round
+    // Get all player IDs from ongoing matches
+    const playerIds = new Set();
+    ongoingMatches.forEach(match => {
+        playerIds.add(match.player1.atcoderId);
+        playerIds.add(match.player2.atcoderId);
+    });
+    
+    // Fetch submissions for all players
+    const submissionsPromises = Array.from(playerIds).map(async playerId => {
+        try {
+            const response = await fetch(`https://kenkoooo.com/atcoder/atcoder-api/v3/user/submissions?user=${playerId}&from_second=0`);
+            
+            if (!response.ok) {
+                console.error(`Failed to fetch submissions for ${playerId}`);
+                return { playerId, submissions: [] };
+            }
+            
+            const submissions = await response.json();
+            return { playerId, submissions };
+        } catch (error) {
+            console.error(`Error fetching submissions for ${playerId}:`, error);
+            return { playerId, submissions: [] };
+        }
+    });
+    
+    const submissionsResults = await Promise.all(submissionsPromises);
+    
+    // Create a map of player ID -> submissions
+    const submissionsMap = {};
+    submissionsResults.forEach(result => {
+        submissionsMap[result.playerId] = result.submissions;
+    });
+    
+    // Store the tournament start time (use actual start time or mock it)
+    const tournamentStartTime = window.tournamentStartTime || 
+        (Math.floor(Date.now() / 1000) - 3600); // Fallback to 1 hour ago
+    
+    // Check each match
+    let matchesUpdated = false;
+    
+    ongoingMatches.forEach(match => {
+        const player1Submissions = submissionsMap[match.player1.atcoderId] || [];
+        const player2Submissions = submissionsMap[match.player2.atcoderId] || [];
+        
+        // Check if player 1 solved the problem
+        const player1AcceptedSubmission = player1Submissions.find(sub => 
+            sub.problem_id === match.problem.id && 
+            sub.result === 'AC' &&
+            sub.epoch_second >= tournamentStartTime
+        );
+        
+        // Check if player 2 solved the problem
+        const player2AcceptedSubmission = player2Submissions.find(sub => 
+            sub.problem_id === match.problem.id && 
+            sub.result === 'AC' &&
+            sub.epoch_second >= tournamentStartTime
+        );
+        
+        // Update match status based on submissions
+        if (player1AcceptedSubmission && !match.player1Solved) {
+            match.player1Solved = true;
+            match.player1Time = player1AcceptedSubmission.epoch_second - tournamentStartTime;
+            matchesUpdated = true;
+        }
+        
+        if (player2AcceptedSubmission && !match.player2Solved) {
+            match.player2Solved = true;
+            match.player2Time = player2AcceptedSubmission.epoch_second - tournamentStartTime;
+            matchesUpdated = true;
+        }
+        
+        // Determine winner if both solved or one solved
+        if ((match.player1Solved || match.player2Solved) && match.status === 'in_progress') {
+            // If both solved, the fastest wins
+            if (match.player1Solved && match.player2Solved) {
+                if (match.player1Time < match.player2Time) {
+                    declareWinner(match, match.player1);
+                } else {
+                    declareWinner(match, match.player2);
+                }
+                matchesUpdated = true;
+            }
+            // If only one solved and it's been a while, they win automatically
+            // (optional: add time threshold for auto-win)
+        }
+    });
+    
+    // Update UI if matches were updated
+    if (matchesUpdated) {
+        displayMatches();
+        checkRoundComplete();
+    }
+}
+
+// Declare a winner for a match
+function declareWinner(match, winner) {
+    match.status = 'completed';
+    match.winner = winner.id;
+    
+    // Update player stats
+    const winnerPlayer = players.find(p => p.id === winner.id);
+    if (winnerPlayer) {
+        winnerPlayer.wins++;
+        winnerPlayer.rating += RATING_INCREMENT;
+    }
+    
+    // Update matches played for both players
+    const player1 = players.find(p => p.id === match.player1.id);
+    const player2 = players.find(p => p.id === match.player2.id);
+    
+    if (player1) player1.matches++;
+    if (player2) player2.matches++;
+    
+    // Update the match object with the latest player data
+    match.player1 = player1;
+    match.player2 = player2;
+}
+
+// Check if the current round is complete
+function checkRoundComplete() {
+    const allMatchesComplete = matches.every(match => match.status === 'completed');
+    
+    if (allMatchesComplete) {
+        document.getElementById('next-round').disabled = false;
+        
+        // If it's the final round, we have a tournament winner
+        if (currentRound === totalRounds) {
+            const finalMatch = matches[0];
+            const winnerId = finalMatch.winner;
+            const winner = players.find(p => p.id === winnerId);
+            
+            alert(`Tournament complete! The winner is ${winner.name}!`);
+        }
+    }
+}
+
+// Start the next round
+function startNextRound() {
     currentRound++;
+    document.getElementById('current-round').textContent = currentRound;
     document.getElementById('next-round').disabled = true;
     
-    // Create new matches and display them
     createMatches();
     displayMatches();
     
-    // Refresh match status
-    refreshMatchStatus();
+    // If no matches were created (odd number of winners), the tournament is over
+    if (matches.length === 0) {
+        alert('Tournament complete!');
+        showLeaderboard();
+    }
 }
 
+// Toggle between tournament and leaderboard views
 function toggleLeaderboard() {
+    const tournamentSection = document.getElementById('tournament-section');
     const leaderboardSection = document.getElementById('leaderboard-section');
+    const toggleButton = document.getElementById('toggle-leaderboard');
     
     if (leaderboardSection.classList.contains('hidden')) {
-        showLeaderboard();
+        // Show leaderboard
+        tournamentSection.classList.add('hidden');
+        tournamentSection.classList.remove('active');
+        leaderboardSection.classList.add('active');
+        leaderboardSection.classList.remove('hidden');
+        toggleButton.textContent = 'Show Tournament';
+        updateLeaderboard();
     } else {
         showTournament();
     }
 }
 
-function showLeaderboard() {
-    document.getElementById('tournament-section').classList.add('hidden');
-    document.getElementById('tournament-section').classList.remove('active');
-    document.getElementById('leaderboard-section').classList.remove('hidden');
-    document.getElementById('leaderboard-section').classList.add('active');
-    
-    updateLeaderboard();
-}
-
+// Show the tournament view
 function showTournament() {
-    document.getElementById('leaderboard-section').classList.add('hidden');
-    document.getElementById('leaderboard-section').classList.remove('active');
-    document.getElementById('tournament-section').classList.remove('hidden');
-    document.getElementById('tournament-section').classList.add('active');
+    const tournamentSection = document.getElementById('tournament-section');
+    const leaderboardSection = document.getElementById('leaderboard-section');
+    const toggleButton = document.getElementById('toggle-leaderboard');
+    
+    tournamentSection.classList.add('active');
+    tournamentSection.classList.remove('hidden');
+    leaderboardSection.classList.add('hidden');
+    leaderboardSection.classList.remove('active');
+    toggleButton.textContent = 'Show Leaderboard';
 }
 
+// Update the leaderboard with current player stats
 function updateLeaderboard() {
     const leaderboardBody = document.getElementById('leaderboard-body');
     leaderboardBody.innerHTML = '';
     
-    // Get all players, including eliminated ones
-    const allPlayers = [...players];
+    // Sort players by rating (descending)
+    const sortedPlayers = [...players].sort((a, b) => b.rating - a.rating);
     
-    // Sort by rating
-    allPlayers.sort((a, b) => b.rating - a.rating);
-    
-    // Create leaderboard rows
-    allPlayers.forEach((player, index) => {
+    sortedPlayers.forEach((player, index) => {
         const row = document.createElement('tr');
-        row.innerHTML = `
-            <td>${index + 1}</td>
-            <td>${player.name}</td>
-            <td>${player.atcoderId}</td>
-            <td>${player.rating}</td>
-            <td>${player.wins}</td>
-            <td>${player.matches}</td>
-        `;
+        
+        const rankCell = document.createElement('td');
+        rankCell.textContent = index + 1;
+        
+        const nameCell = document.createElement('td');
+        nameCell.textContent = player.name;
+        
+        const idCell = document.createElement('td');
+        idCell.textContent = player.atcoderId;
+        
+        const ratingCell = document.createElement('td');
+        ratingCell.textContent = player.rating;
+        
+        const winsCell = document.createElement('td');
+        winsCell.textContent = player.wins;
+        
+        const matchesCell = document.createElement('td');
+        matchesCell.textContent = player.matches;
+        
+        row.appendChild(rankCell);
+        row.appendChild(nameCell);
+        row.appendChild(idCell);
+        row.appendChild(ratingCell);
+        row.appendChild(winsCell);
+        row.appendChild(matchesCell);
+        
         leaderboardBody.appendChild(row);
     });
+}
+
+// Show leaderboard directly
+function showLeaderboard() {
+    const tournamentSection = document.getElementById('tournament-section');
+    const leaderboardSection = document.getElementById('leaderboard-section');
+    const toggleButton = document.getElementById('toggle-leaderboard');
+    
+    tournamentSection.classList.add('hidden');
+    tournamentSection.classList.remove('active');
+    leaderboardSection.classList.add('active');
+    leaderboardSection.classList.remove('hidden');
+    toggleButton.textContent = 'Show Tournament';
+    
+    updateLeaderboard();
 }
