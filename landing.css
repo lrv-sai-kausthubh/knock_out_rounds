@@ -1,0 +1,356 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+:root {
+    --primary-color: #3498db;
+    --secondary-color: #2c3e50;
+    --accent-color: #e74c3c;
+    --success-color: #2ecc71;
+    --warning-color: #f39c12;
+    --background-color: #f5f5f5;
+    --card-background: white;
+    --text-color: #333;
+    --border-radius: 8px;
+}
+
+body {
+    background-color: var(--background-color);
+    color: var(--text-color);
+    line-height: 1.6;
+    padding: 20px;
+}
+
+header {
+    text-align: center;
+    margin-bottom: 30px;
+    padding: 20px;
+    background-color: var(--secondary-color);
+    color: white;
+    border-radius: var(--border-radius);
+}
+
+h1, h2 {
+    margin-bottom: 15px;
+}
+
+.hidden {
+    display: none;
+}
+
+.active {
+    display: block;
+}
+
+section {
+    background-color: var(--card-background);
+    border-radius: var(--border-radius);
+    padding: 25px;
+    margin-bottom: 30px;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+}
+
+/* Setup form styles */
+.setup-form {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+
+input {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: var(--border-radius);
+    font-size: 16px;
+}
+
+small {
+    display: block;
+    color: #777;
+    margin-top: 5px;
+}
+
+button {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.3s;
+    margin: 10px 0;
+}
+
+button:hover {
+    background-color: #2980b9;
+}
+
+button:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
+/* Player fields styles */
+.player-row {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 15px;
+    align-items: center;
+}
+
+.player-number {
+    flex: 0 0 50px;
+    font-weight: bold;
+}
+
+.player-name, .player-id {
+    flex: 1;
+}
+
+/* Tournament section styles */
+.tournament-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+}
+
+.round-info {
+    font-size: 18px;
+    font-weight: bold;
+}
+
+/* Matches styles */
+.matches-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+.match-card {
+    background-color: var(--card-background);
+    border: 2px solid #ddd;
+    border-radius: var(--border-radius);
+    padding: 15px;
+    position: relative;
+}
+
+.match-card.player1-won {
+    border-color: var(--success-color);
+}
+
+.match-card.player2-won {
+    border-color: var(--accent-color);
+}
+
+.match-header {
+    font-weight: bold;
+    text-align: center;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+    margin-bottom: 15px;
+}
+
+.player {
+    padding: 10px;
+    margin-bottom: 10px;
+    border-radius: var(--border-radius);
+    position: relative;
+}
+
+.player-info {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 5px;
+}
+
+.player-name-display {
+    font-weight: bold;
+}
+
+.player-rating {
+    background-color: var(--secondary-color);
+    color: white;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 14px;
+}
+
+.player.solved {
+    background-color: var(--success-color);
+    color: white;
+}
+
+.player .time-taken {
+    position: absolute;
+    right: 10px;
+    bottom: 10px;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.versus {
+    text-align: center;
+    font-size: 20px;
+    margin: 15px 0;
+    font-weight: bold;
+    color: var(--accent-color);
+}
+
+.problem-link {
+    display: block;
+    text-align: center;
+    margin: 15px 0;
+    color: var(--primary-color);
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.problem-link:hover {
+    text-decoration: underline;
+}
+
+/* Leaderboard styles */
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+th, td {
+    padding: 12px 15px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+}
+
+th {
+    background-color: var(--secondary-color);
+    color: white;
+}
+
+tr:nth-child(even) {
+    background-color: #f2f2f2;
+}
+
+tr:hover {
+    background-color: #e2e2e2;
+}
+
+/* Footer styles */
+footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 40px;
+    padding-top: 20px;
+    border-top: 1px solid #ddd;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .player-row {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .player-number {
+        flex: 0 0 auto;
+    }
+    
+    .matches-container {
+        grid-template-columns: 1fr;
+    }
+    
+    .tournament-header {
+        flex-direction: column;
+        gap: 15px;
+    }
+}
+
+
+/* Add these styles to your landing.css file */
+
+/* Verification styles */
+.verify-btn {
+    margin-left: 10px;
+    padding: 5px 10px;
+    font-size: 14px;
+}
+
+.verify-status {
+    margin-left: 10px;
+    font-size: 14px;
+}
+
+.verify-status.success {
+    color: var(--success-color);
+}
+
+.verify-status.error {
+    color: var(--accent-color);
+}
+
+.verify-status.pending {
+    color: var(--warning-color);
+}
+
+/* Problem info styles */
+.problem-info {
+    text-align: center;
+    font-weight: bold;
+    margin-bottom: 15px;
+    padding: 8px;
+    background-color: #f4f4f4;
+    border-radius: var(--border-radius);
+}
+
+/* Submission status */
+.submission-status {
+    margin-top: 10px;
+    font-size: 14px;
+    color: #666;
+}
+
+.player.solved .submission-status {
+    color: white;
+    font-weight: bold;
+}
+
+.player.winner {
+    border: 2px solid gold;
+}
+
+/* Loading message */
+.loading-message {
+    text-align: center;
+    margin: 20px 0;
+    padding: 10px;
+    background-color: #f4f4f4;
+    border-radius: var(--border-radius);
+}
+
+/* Error styles */
+.match-card.error {
+    border-color: var(--accent-color);
+    background-color: #ffeeee;
+}
+
+.error-message {
+    color: var(--accent-color);
+    padding: 10px;
+    margin: 10px 0;
+    text-align: center;
+}
