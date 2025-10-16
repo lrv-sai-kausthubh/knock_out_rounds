@@ -119,9 +119,12 @@ async function verifyAtCoderid(e) {
 }
 
 // Start the tournament with entered players
-function startTournament() {
+async function startTournament() {
     const numPlayers = parseInt(document.getElementById('num-players').value);
     players = [];
+    
+    // Store tournament start time for accurate timing
+    window.tournamentStartTime = Math.floor(Date.now() / 1000);
     
     for (let i = 1; i <= numPlayers; i++) {
         const nameInput = document.getElementById(`player-name-${i}`);
@@ -150,13 +153,294 @@ function startTournament() {
     document.getElementById('tournament-section').classList.add('active');
     document.getElementById('current-round').textContent = currentRound;
     
-    createMatches();
-    displayMatches();
-    startAutoRefresh();
+    // Display loading message while setting up the tournament
+    const matchesContainer = document.getElementById('matches-container');
+    matchesContainer.innerHTML = '<div class="loading-message">Setting up matches...</div>';
+    
+    try {
+        await createMatches();
+        displayMatches();
+        startAutoRefresh();
+    } catch (error) {
+        console.error('Error starting tournament:', error);
+        matchesContainer.innerHTML = '<div class="error-message">Failed to set up matches. Please try again.</div>';
+    }
 }
 
+
+
+// function startTournament() {
+//     const numPlayers = parseInt(document.getElementById('num-players').value);
+//     players = [];
+    
+//     for (let i = 1; i <= numPlayers; i++) {
+//         const nameInput = document.getElementById(`player-name-${i}`);
+//         const idInput = document.getElementById(`player-id-${i}`);
+        
+//         if (!nameInput.value || !idInput.value) {
+//             alert('Please fill in all player information');
+//             return;
+//         }
+        
+//         players.push({
+//             id: i,
+//             name: nameInput.value,
+//             atcoderId: idInput.value,
+//             rating: 0,
+//             wins: 0,
+//             matches: 0
+//         });
+//     }
+    
+//     totalRounds = Math.ceil(Math.log2(players.length));
+    
+//     document.getElementById('setup-section').classList.remove('active');
+//     document.getElementById('setup-section').classList.add('hidden');
+//     document.getElementById('tournament-section').classList.remove('hidden');
+//     document.getElementById('tournament-section').classList.add('active');
+//     document.getElementById('current-round').textContent = currentRound;
+    
+//     createMatches();
+//     displayMatches();
+//     startAutoRefresh();
+// }
+
+
+
+
+
+
+// New function to get a problem that both users haven't solved yet
+// async function getUnsolvedProblem(player1Id, player2Id) {
+//     try {
+//         // Fetch submissions for both players
+//         const player1Response = await fetch(`https://kenkoooo.com/atcoder/atcoder-api/v3/user/submissions?user=${player1Id}&from_second=0`);
+//         const player2Response = await fetch(`https://kenkoooo.com/atcoder/atcoder-api/v3/user/submissions?user=${player2Id}&from_second=0`);
+        
+//         if (!player1Response.ok || !player2Response.ok) {
+//             throw new Error('Failed to fetch submissions');
+//         }
+        
+//         const player1Submissions = await player1Response.json();
+//         const player2Submissions = await player2Response.json();
+        
+//         // Get sets of solved problem IDs for both players
+//         const player1Solved = new Set();
+//         const player2Solved = new Set();
+        
+//         player1Submissions.forEach(sub => {
+//             if (sub.result === 'AC') {
+//                 player1Solved.add(sub.problem_id);
+//             }
+//         });
+        
+//         player2Submissions.forEach(sub => {
+//             if (sub.result === 'AC') {
+//                 player2Solved.add(sub.problem_id);
+//             }
+//         });
+        
+//         // List of beginner contests (ABC series)
+//         const beginnerContests = [];
+//         // Generate contest IDs from abc001 to abc300 (covers most beginner contests)
+//         for (let i = 1; i <= 300; i++) {
+//             beginnerContests.push(`abc${i.toString().padStart(3, '0')}`);
+//         }
+        
+//         // First try category A problems
+//         for (const contestId of beginnerContests) {
+//             const problemId = `${contestId}_a`;
+            
+//             // If neither player has solved this problem, use it
+//             if (!player1Solved.has(problemId) && !player2Solved.has(problemId)) {
+//                 return {
+//                     id: problemId,
+//                     url: `https://atcoder.jp/contests/${contestId}/tasks/${problemId}`,
+//                     name: `${contestId.toUpperCase()} Problem A`
+//                 };
+//             }
+//         }
+        
+//         // If no common unsolved A problems, try category B problems
+//         for (const contestId of beginnerContests) {
+//             const problemId = `${contestId}_b`;
+            
+//             // If neither player has solved this problem, use it
+//             if (!player1Solved.has(problemId) && !player2Solved.has(problemId)) {
+//                 return {
+//                     id: problemId,
+//                     url: `https://atcoder.jp/contests/${contestId}/tasks/${problemId}`,
+//                     name: `${contestId.toUpperCase()} Problem B`
+//                 };
+//             }
+//         }
+        
+//         // Fallback to a random beginner A problem if no common unsolved problems found
+//         const randomContestId = beginnerContests[Math.floor(Math.random() * beginnerContests.length)];
+//         return {
+//             id: `${randomContestId}_a`,
+//             url: `https://atcoder.jp/contests/${randomContestId}/tasks/${randomContestId}_a`,
+//             name: `${randomContestId.toUpperCase()} Problem A (Fallback)`
+//         };
+        
+//     } catch (error) {
+//         console.error('Error getting unsolved problem:', error);
+//         // Fallback to a simple problem if there's an error
+//         return {
+//             id: 'abc042_a',
+//             url: 'https://atcoder.jp/contests/abc042/tasks/abc042_a',
+//             name: 'ABC042 Problem A (Error Fallback)'
+//         };
+//     }
+// }
+
+// New function to get a problem that both users haven't solved yet
+async function getUnsolvedProblem(player1Id, player2Id) {
+    try {
+        // Fetch submissions for both players
+        const player1Response = await fetch(`https://kenkoooo.com/atcoder/atcoder-api/v3/user/submissions?user=${player1Id}&from_second=0`);
+        const player2Response = await fetch(`https://kenkoooo.com/atcoder/atcoder-api/v3/user/submissions?user=${player2Id}&from_second=0`);
+        
+        if (!player1Response.ok || !player2Response.ok) {
+            throw new Error('Failed to fetch submissions');
+        }
+        
+        const player1Submissions = await player1Response.json();
+        const player2Submissions = await player2Response.json();
+        
+        // Get sets of solved problem IDs for both players
+        const player1Solved = new Set();
+        const player2Solved = new Set();
+        
+        player1Submissions.forEach(sub => {
+            if (sub.result === 'AC') {
+                player1Solved.add(sub.problem_id);
+            }
+        });
+        
+        player2Submissions.forEach(sub => {
+            if (sub.result === 'AC') {
+                player2Solved.add(sub.problem_id);
+            }
+        });
+        
+        // List of beginner contests (ABC series)
+        const beginnerContests = [];
+        // Generate contest IDs from abc001 to abc300 (covers most beginner contests)
+        for (let i = 1; i <= 300; i++) {
+            beginnerContests.push(`abc${i.toString().padStart(3, '0')}`);
+        }
+        
+        // First try category A problems (which are _1 in URLs but _a in problem IDs)
+        for (const contestId of beginnerContests) {
+            const problemId = `${contestId}_a`;  // Keep this as _a for API matching
+            
+            // If neither player has solved this problem, use it
+            if (!player1Solved.has(problemId) && !player2Solved.has(problemId)) {
+                return {
+                    id: problemId,  // Keep as _a for API comparison
+                    url: `https://atcoder.jp/contests/${contestId}/tasks/${contestId}_1`,  // Use _1 in URL
+                    name: `${contestId.toUpperCase()} Problem A`
+                };
+            }
+        }
+        
+        // If no common unsolved A problems, try category B problems
+        for (const contestId of beginnerContests) {
+            const problemId = `${contestId}_b`;  // Keep this as _b for API matching
+            
+            // If neither player has solved this problem, use it
+            if (!player1Solved.has(problemId) && !player2Solved.has(problemId)) {
+                return {
+                    id: problemId,  // Keep as _b for API comparison
+                    url: `https://atcoder.jp/contests/${contestId}/tasks/${contestId}_2`,  // Use _2 in URL
+                    name: `${contestId.toUpperCase()} Problem B`
+                };
+            }
+        }
+        
+        // Fallback to a random beginner A problem if no common unsolved problems found
+        const randomContestId = beginnerContests[Math.floor(Math.random() * beginnerContests.length)];
+        return {
+            id: `${randomContestId}_a`,  // Keep as _a for API comparison
+            url: `https://atcoder.jp/contests/${randomContestId}/tasks/${randomContestId}_1`,  // Use _1 in URL
+            name: `${randomContestId.toUpperCase()} Problem A (Fallback)`
+        };
+        
+    } catch (error) {
+        console.error('Error getting unsolved problem:', error);
+        // Fallback to a simple problem if there's an error
+        return {
+            id: 'abc042_a',  // Keep as _a for API comparison
+            url: 'https://atcoder.jp/contests/abc042/tasks/abc042_1',  // Use _1 in URL
+            name: 'ABC042 Problem A (Error Fallback)'
+        };
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 // Create matches for the current round
-function createMatches() {
+async function createMatches() {
     matches = [];
     
     // If this is the first round, randomly pair players
@@ -164,70 +448,141 @@ function createMatches() {
         // Shuffle players for random pairing
         const shuffledPlayers = [...players].sort(() => Math.random() - 0.5);
         
-        // Create pairs
+        // Create pairs and assign problems (now async)
         for (let i = 0; i < shuffledPlayers.length; i += 2) {
             if (i + 1 < shuffledPlayers.length) {
-                const problem = getRandomProblem();
-                matches.push({
+                // Show loading message while fetching problems
+                const loadingMatch = {
                     id: matches.length + 1,
                     player1: shuffledPlayers[i],
                     player2: shuffledPlayers[i + 1],
-                    problem: problem,
-                    status: 'in_progress',
+                    problem: { id: 'loading', name: 'Loading problem...', url: '#' },
+                    status: 'loading',
                     winner: null,
                     player1Solved: false,
                     player2Solved: false,
                     player1Time: null,
                     player2Time: null
-                });
+                };
+                
+                matches.push(loadingMatch);
             }
         }
+        
+        // Display initial matches with loading indicators
+        displayMatches();
+        
+        // Now replace each loading match with actual problem
+        for (const match of matches) {
+            try {
+                const problem = await getUnsolvedProblem(match.player1.atcoderId, match.player2.atcoderId);
+                match.problem = problem;
+                match.status = 'in_progress';
+                displayMatches(); // Update the display after each problem is fetched
+            } catch (error) {
+                console.error('Error assigning problem to match:', error);
+            }
+        }
+        
     } else {
-        // In later rounds, pair players by similar rating
+        // Later rounds logic (similar update)
         const roundWinners = players.filter(p => p.wins === currentRound - 1);
         roundWinners.sort((a, b) => a.rating - b.rating);
         
-        // Create pairs based on rating
+        // Create pairs based on rating and assign problems (now async)
         for (let i = 0; i < roundWinners.length; i += 2) {
             if (i + 1 < roundWinners.length) {
-                const problem = getRandomProblem();
-                matches.push({
+                // Show loading message while fetching problems
+                const loadingMatch = {
                     id: matches.length + 1,
                     player1: roundWinners[i],
                     player2: roundWinners[i + 1],
-                    problem: problem,
-                    status: 'in_progress',
+                    problem: { id: 'loading', name: 'Loading problem...', url: '#' },
+                    status: 'loading',
                     winner: null,
                     player1Solved: false,
                     player2Solved: false,
                     player1Time: null,
                     player2Time: null
-                });
+                };
+                
+                matches.push(loadingMatch);
+            }
+        }
+        
+        // Display initial matches with loading indicators
+        displayMatches();
+        
+        // Now replace each loading match with actual problem
+        for (const match of matches) {
+            try {
+                const problem = await getUnsolvedProblem(match.player1.atcoderId, match.player2.atcoderId);
+                match.problem = problem;
+                match.status = 'in_progress';
+                displayMatches(); // Update the display after each problem is fetched
+            } catch (error) {
+                console.error('Error assigning problem to match:', error);
             }
         }
     }
 }
 
-// Get a random AtCoder problem
-function getRandomProblem() {
-    // List of AtCoder contests
-    const contestIds = [
-        'abc150', 'abc151', 'abc152', 'abc153', 'abc154', 'abc155',
-        'abc156', 'abc157', 'abc158', 'abc159', 'abc160'
-    ];
+// function createMatches() {
+//     matches = [];
     
-    const taskIds = ['a', 'b', 'c', 'd'];
-    
-    const contestId = contestIds[Math.floor(Math.random() * contestIds.length)];
-    const taskId = taskIds[Math.floor(Math.random() * taskIds.length)];
-    const problemId = `${contestId}_${taskId}`;
-    
-    return {
-        id: problemId,
-        url: `https://atcoder.jp/contests/${contestId}/tasks/${problemId}`,
-        name: `${contestId.toUpperCase()} Problem ${taskId.toUpperCase()}`
-    };
-}
+//     // If this is the first round, randomly pair players
+//     if (currentRound === 1) {
+//         // Shuffle players for random pairing
+//         const shuffledPlayers = [...players].sort(() => Math.random() - 0.5);
+        
+//         // Create pairs
+//         for (let i = 0; i < shuffledPlayers.length; i += 2) {
+//             if (i + 1 < shuffledPlayers.length) {
+//                 const problem = getRandomProblem();
+//                 matches.push({
+//                     id: matches.length + 1,
+//                     player1: shuffledPlayers[i],
+//                     player2: shuffledPlayers[i + 1],
+//                     problem: problem,
+//                     status: 'in_progress',
+//                     winner: null,
+//                     player1Solved: false,
+//                     player2Solved: false,
+//                     player1Time: null,
+//                     player2Time: null
+//                 });
+//             }
+//         }
+//     } else {
+//         // In later rounds, pair players by similar rating
+//         const roundWinners = players.filter(p => p.wins === currentRound - 1);
+//         roundWinners.sort((a, b) => a.rating - b.rating);
+        
+//         // Create pairs based on rating
+//         for (let i = 0; i < roundWinners.length; i += 2) {
+//             if (i + 1 < roundWinners.length) {
+//                 const problem = getRandomProblem();
+//                 matches.push({
+//                     id: matches.length + 1,
+//                     player1: roundWinners[i],
+//                     player2: roundWinners[i + 1],
+//                     problem: problem,
+//                     status: 'in_progress',
+//                     winner: null,
+//                     player1Solved: false,
+//                     player2Solved: false,
+//                     player1Time: null,
+//                     player2Time: null
+//                 });
+//             }
+//         }
+//     }
+// }
+
+
+
+
+
 
 // Display matches in the UI
 function displayMatches() {
@@ -535,21 +890,31 @@ function checkRoundComplete() {
     }
 }
 
-// Start the next round
-function startNextRound() {
+// Update startNextRound for async operation
+async function startNextRound() {
     currentRound++;
     document.getElementById('current-round').textContent = currentRound;
     document.getElementById('next-round').disabled = true;
     
-    createMatches();
-    displayMatches();
+    // Display loading message
+    const matchesContainer = document.getElementById('matches-container');
+    matchesContainer.innerHTML = '<div class="loading-message">Setting up next round...</div>';
     
-    // If no matches were created (odd number of winners), the tournament is over
-    if (matches.length === 0) {
-        alert('Tournament complete!');
-        showLeaderboard();
+    try {
+        await createMatches();
+        displayMatches();
+        
+        // If no matches were created (odd number of winners), the tournament is over
+        if (matches.length === 0) {
+            alert('Tournament complete!');
+            showLeaderboard();
+        }
+    } catch (error) {
+        console.error('Error starting next round:', error);
+        matchesContainer.innerHTML = '<div class="error-message">Failed to set up next round. Please try again.</div>';
     }
 }
+
 
 // Toggle between tournament and leaderboard views
 function toggleLeaderboard() {
