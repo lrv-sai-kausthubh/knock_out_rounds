@@ -20,6 +20,12 @@
                     <input type="number" id="num-players" min="2" step="2" value="2">
                     <small>Must be an even number</small>
                 </div>
+                <!-- Add this to the setup-form div in landing.html -->
+                <div class="form-group">
+                    <label for="num-rounds">Number of Rounds:</label>
+                    <input type="number" id="num-rounds" min="1" value="3">
+                    <small>How many rounds the tournament will have</small>
+                </div>
                 <button id="generate-fields">Generate Player Fields</button>
                 
                 <div id="player-fields"></div>
