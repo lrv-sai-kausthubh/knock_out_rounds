@@ -3,78 +3,137 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AtCoder Knockout Games</title>
+    <title>Knockout Games Tournament Tracker</title>
     <link rel="stylesheet" href="landing.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
     <header>
-        <h1>AtCoder Knockout Games</h1>
+        <div class="container">
+            <h1><i class="fas fa-trophy"></i> Knockout Games Tournament</h1>
+            <div class="controls">
+                <button id="new-tournament" class="btn primary"><i class="fas fa-plus"></i> New Tournament</button>
+                <button id="save-tournament" class="btn secondary"><i class="fas fa-save"></i> Save</button>
+            </div>
+        </div>
     </header>
 
-    <main>
-        <section id="setup-section" class="active">
+    <main class="container">
+        <div id="setup-panel" class="panel">
             <h2>Tournament Setup</h2>
-            <div class="setup-form">
-                <div class="form-group">
-                    <label for="num-players">Number of Players:</label>
-                    <input type="number" id="num-players" min="2" step="2" value="2">
-                    <small>Must be an even number</small>
-                </div>
-                <!-- Add this to the setup-form div in landing.html -->
-                <div class="form-group">
-                    <label for="num-rounds">Number of Rounds:</label>
-                    <input type="number" id="num-rounds" min="1" value="3">
-                    <small>How many rounds the tournament will have</small>
-                </div>
-                <button id="generate-fields">Generate Player Fields</button>
-                
-                <div id="player-fields"></div>
-                
-                
-                
-                <button id="start-tournament" disabled>Start Tournament</button>
+            <div class="form-group">
+                <label for="tournament-name">Tournament Name:</label>
+                <input type="text" id="tournament-name" placeholder="Enter tournament name">
             </div>
-        </section>
-
-        <section id="tournament-section" class="hidden">
-            <div class="tournament-header">
-                <h2>Tournament in Progress</h2>
-                <div class="round-info">
-                    <span>Round: <span id="current-round">1</span></span>
-                    <button id="next-round" disabled>Next Round</button>
+            <!-- Update the player input section -->
+            <div class="form-group">
+                <label for="player-input">Add Players:</label>
+                <div class="input-group">
+                    <input type="text" id="player-input" placeholder="Enter player name">
+                    <input type="text" id="atcoder-id" placeholder="AtCoder ID">
+                    <button id="add-player" class="btn secondary"><i class="fas fa-plus"></i></button>
                 </div>
             </div>
-
-            <div class="matches-container" id="matches-container">
-                <!-- Matches will be displayed here -->
+            <div id="players-list" class="players-container">
+                <h3>Players List <span id="player-count">(0)</span></h3>
+                <ul id="players"></ul>
             </div>
-        </section>
 
-        <section id="leaderboard-section" class="hidden">
-            <h2>Leaderboard</h2>
-            <table id="leaderboard">
-                <thead>
-                    <tr>
-                        <th>Rank</th>
-                        <th>Player</th>
-                        <th>AtCoder ID</th>
-                        <th>Rating</th>
-                        <th>Wins</th>
-                        <th>Matches</th>
-                    </tr>
-                </thead>
-                <tbody id="leaderboard-body">
-                    <!-- Leaderboard entries will be displayed here -->
-                </tbody>
-            </table>
-            <button id="show-tournament">Back to Tournament</button>
-        </section>
+            <!-- Add this after the tournament name input in the setup-panel -->
+            <div class="form-group">
+                <label for="rounds-input">Number of Rounds:</label>
+                <input type="number" id="rounds-input" min="1" value="3" placeholder="Enter number of rounds">
+            </div>
+            <button id="start-tournament" class="btn primary full-width"><i class="fas fa-play"></i> Start Tournament</button>
+        </div>
+        
+        <div id="tournament-view" class="panel hidden">
+            <div class="tournament-controls">
+                <h2 id="tournament-title">Tournament</h2>
+                <div class="btn-group">
+                    <button id="prev-round" class="btn secondary"><i class="fas fa-chevron-left"></i> Previous Round</button>
+                    <span id="round-display">Round 1</span>
+                    <button id="next-round" class="btn secondary">Next Round <i class="fas fa-chevron-right"></i></button>
+                </div>
+            </div>
+            
+            <div id="tournament-bracket" class="bracket-container">
+                <!-- Tournament brackets will be generated here -->
+            </div>
+        </div>
+
+        <!-- Update the match panel to include problem information -->
+<div id="match-panel" class="panel hidden">
+    <h2>Record Match Result</h2>
+    <div class="match-problem">
+        <h3>Assigned Problem</h3>
+        <div id="problem-container" class="problem-info">
+            <p>Loading problem...</p>
+        </div>
+        <a id="problem-link" href="#" target="_blank" class="btn secondary"><i class="fas fa-external-link-alt"></i> Open Problem</a>
+    </div>
+    <div class="match-details">
+        <div class="player" id="match-player1">
+            <h3>Player 1</h3>
+            <button class="btn win-btn" data-player="1"><i class="fas fa-crown"></i> Mark as Winner</button>
+        </div>
+        <div class="vs">VS</div>
+        <div class="player" id="match-player2">
+            <h3>Player 2</h3>
+            <button class="btn win-btn" data-player="2"><i class="fas fa-crown"></i> Mark as Winner</button>
+        </div>
+    </div>
+    <button id="close-match-panel" class="btn secondary full-width"><i class="fas fa-times"></i> Close</button>
+</div>
+        
+        <!-- <div id="match-panel" class="panel hidden">
+            <h2>Record Match Result</h2>
+            <div class="match-details">
+                <div class="player" id="match-player1">
+                    <h3>Player 1</h3>
+                    <button class="btn win-btn" data-player="1"><i class="fas fa-crown"></i> Mark as Winner</button>
+                </div>
+                <div class="vs">VS</div>
+                <div class="player" id="match-player2">
+                    <h3>Player 2</h3>
+                    <button class="btn win-btn" data-player="2"><i class="fas fa-crown"></i> Mark as Winner</button>
+                </div>
+            </div>
+            <button id="close-match-panel" class="btn secondary full-width"><i class="fas fa-times"></i> Close</button>
+        </div> -->
     </main>
 
+    <!-- Add this after the match-panel div and before the footer -->
+    <div id="scoreboard-panel" class="panel hidden">
+        <h2>Tournament Results</h2>
+        <div class="tournament-controls">
+            <h3>Final Standings</h3>
+            <button id="return-to-tournament" class="btn secondary">Back to Tournament</button>
+        </div>
+        <div id="scoreboard" class="scoreboard-container">
+            <!-- Scores will be generated here -->
+        </div>
+        <button id="new-tournament-from-results" class="btn primary full-width"><i class="fas fa-plus"></i> Start New Tournament</button>
+    </div>
+
+
     <footer>
-        <p>AtCoder Knockout Games &copy; 2025</p>
-        <button id="toggle-leaderboard">Show Leaderboard</button>
+        <div class="container">
+            <p>&copy; 2025 Knockout Games Tournament Tracker</p>
+        </div>
     </footer>
+
+    <div id="modal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2 id="modal-title"></h2>
+            <div id="modal-body"></div>
+            <div id="modal-footer">
+                <button id="modal-confirm" class="btn primary">OK</button>
+                <button id="modal-cancel" class="btn secondary">Cancel</button>
+            </div>
+        </div>
+    </div>
 
     <script src="landing.js"></script>
 </body>

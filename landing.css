@@ -1,392 +1,555 @@
+/* General Styles */
+:root {
+    --primary-color: #2c3e50;
+    --secondary-color: #3498db;
+    --accent-color: #e74c3c;
+    --light-color: #ecf0f1;
+    --dark-color: #34495e;
+    --success-color: #2ecc71;
+    --warning-color: #f39c12;
+    --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    --border-radius: 5px;
+    --transition: all 0.3s ease;
+}
+
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-}
-
-:root {
-    --primary-color: #3498db;
-    --secondary-color: #2c3e50;
-    --accent-color: #e74c3c;
-    --success-color: #2ecc71;
-    --warning-color: #f39c12;
-    --background-color: #f5f5f5;
-    --card-background: white;
-    --text-color: #333;
-    --border-radius: 8px;
 }
 
 body {
-    background-color: var(--background-color);
-    color: var(--text-color);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     line-height: 1.6;
-    padding: 20px;
+    background-color: var(--light-color);
+    color: var(--primary-color);
 }
 
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+/* Header */
 header {
-    text-align: center;
-    margin-bottom: 30px;
-    padding: 20px;
+    background-color: var(--primary-color);
+    color: white;
+    padding: 20px 0;
+    box-shadow: var(--shadow);
+}
+
+header .container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+header h1 {
+    font-size: 1.8rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.controls {
+    display: flex;
+    gap: 10px;
+}
+
+/* Buttons */
+.btn {
+    cursor: pointer;
+    padding: 8px 16px;
+    border: none;
+    border-radius: var(--border-radius);
+    font-size: 0.9rem;
+    transition: var(--transition);
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.btn:hover {
+    filter: brightness(1.1);
+    transform: translateY(-1px);
+}
+
+.btn:active {
+    transform: translateY(0);
+}
+
+.primary {
     background-color: var(--secondary-color);
     color: white;
-    border-radius: var(--border-radius);
 }
 
-h1, h2 {
-    margin-bottom: 15px;
+.secondary {
+    background-color: var(--light-color);
+    color: var(--primary-color);
+    border: 1px solid var(--primary-color);
+}
+
+.win-btn {
+    background-color: var(--success-color);
+    color: white;
+}
+
+.full-width {
+    width: 100%;
+    margin-top: 15px;
+}
+
+/* Panel */
+.panel {
+    background: white;
+    border-radius: var(--border-radius);
+    padding: 20px;
+    margin: 20px 0;
+    box-shadow: var(--shadow);
 }
 
 .hidden {
-    display: none;
+    display: none !important;
 }
 
-.active {
-    display: block;
-}
-
-section {
-    background-color: var(--card-background);
-    border-radius: var(--border-radius);
-    padding: 25px;
-    margin-bottom: 30px;
-    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
-}
-
-/* Setup form styles */
-.setup-form {
-    max-width: 800px;
-    margin: 0 auto;
-}
-
+/* Form Elements */
 .form-group {
-    margin-bottom: 20px;
+    margin-bottom: 15px;
 }
 
 label {
     display: block;
     margin-bottom: 5px;
-    font-weight: bold;
+    font-weight: 500;
 }
 
-input {
+input[type="text"] {
     width: 100%;
-    padding: 10px;
+    padding: 8px 10px;
     border: 1px solid #ddd;
     border-radius: var(--border-radius);
-    font-size: 16px;
+    font-size: 0.9rem;
 }
 
-small {
-    display: block;
-    color: #777;
-    margin-top: 5px;
-}
-
-button {
-    background-color: var(--primary-color);
-    color: white;
-    border: none;
-    padding: 12px 20px;
-    border-radius: var(--border-radius);
-    cursor: pointer;
-    font-size: 16px;
-    transition: background-color 0.3s;
-    margin: 10px 0;
-}
-
-button:hover {
-    background-color: #2980b9;
-}
-
-button:disabled {
-    background-color: #ccc;
-    cursor: not-allowed;
-}
-
-/* Player fields styles */
-.player-row {
+.input-group {
     display: flex;
-    gap: 15px;
-    margin-bottom: 15px;
-    align-items: center;
+    gap: 5px;
 }
 
-.player-number {
-    flex: 0 0 50px;
-    font-weight: bold;
+.input-group input {
+    flex-grow: 1;
 }
 
-.player-name, .player-id {
-    flex: 1;
-}
-
-/* Tournament section styles */
-.tournament-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 25px;
-}
-
-.round-info {
-    font-size: 18px;
-    font-weight: bold;
-}
-
-/* Matches styles */
-.matches-container {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 20px;
-}
-
-.match-card {
-    background-color: var(--card-background);
-    border: 2px solid #ddd;
+/* Players List */
+.players-container {
+    margin: 20px 0;
+    border: 1px solid #ddd;
     border-radius: var(--border-radius);
     padding: 15px;
-    position: relative;
 }
 
-.match-card.player1-won {
-    border-color: var(--success-color);
-}
-
-.match-card.player2-won {
-    border-color: var(--accent-color);
-}
-
-.match-header {
-    font-weight: bold;
-    text-align: center;
-    padding-bottom: 10px;
-    border-bottom: 1px solid #eee;
-    margin-bottom: 15px;
-}
-
-.player {
-    padding: 10px;
-    margin-bottom: 10px;
-    border-radius: var(--border-radius);
-    position: relative;
-}
-
-.player-info {
+.players-container h3 {
     display: flex;
     justify-content: space-between;
-    margin-bottom: 5px;
+    margin-bottom: 10px;
 }
 
-.player-name-display {
-    font-weight: bold;
+#players {
+    list-style: none;
+    max-height: 200px;
+    overflow-y: auto;
 }
 
-.player-rating {
-    background-color: var(--secondary-color);
-    color: white;
-    padding: 2px 8px;
-    border-radius: 10px;
-    font-size: 14px;
+#players li {
+    padding: 8px;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
-.player.solved {
-    background-color: var(--success-color);
-    color: white;
+#players li:last-child {
+    border-bottom: none;
 }
 
-.player .time-taken {
-    position: absolute;
-    right: 10px;
-    bottom: 10px;
-    font-size: 14px;
-    font-weight: bold;
-}
-
-.versus {
-    text-align: center;
-    font-size: 20px;
-    margin: 15px 0;
-    font-weight: bold;
+.remove-player {
+    cursor: pointer;
     color: var(--accent-color);
 }
 
-.problem-link {
-    display: block;
+/* Tournament View */
+.tournament-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.btn-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+#round-display {
+    font-weight: 600;
+    padding: 8px 12px;
+    background-color: var(--primary-color);
+    color: white;
+    border-radius: var(--border-radius);
+}
+
+/* Tournament Bracket */
+.bracket-container {
+    overflow-x: auto;
+    padding: 20px 0;
+    min-height: 400px;
+}
+
+.round {
+    display: flex;
+    flex-direction: column;
+    min-width: 200px;
+}
+
+.rounds-container {
+    display: flex;
+    gap: 40px;
+    justify-content: flex-start;
+}
+
+.round-header {
     text-align: center;
-    margin: 15px 0;
+    padding: 10px;
+    font-weight: 600;
     color: var(--primary-color);
-    text-decoration: none;
+}
+
+.match-connector {
+    position: relative;
+}
+
+.match {
+    margin: 10px 0;
+    border: 1px solid #ddd;
+    border-radius: var(--border-radius);
+    overflow: hidden;
+    cursor: pointer;
+    transition: var(--transition);
+    background-color: white;
+}
+
+.match:hover {
+    box-shadow: var(--shadow);
+    transform: translateY(-2px);
+}
+
+.match-player {
+    padding: 8px 12px;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    justify-content: space-between;
+}
+
+.match-player:last-child {
+    border-bottom: none;
+}
+
+.winner {
+    background-color: rgba(46, 204, 113, 0.2);
+    font-weight: 600;
+}
+
+.loser {
+    background-color: rgba(231, 76, 60, 0.1);
+    color: #7f8c8d;
+}
+
+.player-name {
+    max-width: 140px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.match-pending .match-player {
+    background-color: #f8f9fa;
+    color: #aaa;
+}
+
+/* Match Panel */
+.match-details {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 20px 0;
+}
+
+.player {
+    flex: 1;
+    text-align: center;
+    padding: 20px;
+    background-color: #f8f9fa;
+    border-radius: var(--border-radius);
+}
+
+.vs {
+    padding: 0 20px;
     font-weight: bold;
+    font-size: 1.2rem;
 }
 
-.problem-link:hover {
-    text-decoration: underline;
+/* Modal */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
 }
 
-/* Leaderboard styles */
-table {
+.modal-content {
+    background-color: white;
+    padding: 25px;
+    border-radius: var(--border-radius);
+    width: 90%;
+    max-width: 500px;
+    position: relative;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.close-modal {
+    position: absolute;
+    right: 15px;
+    top: 10px;
+    font-size: 24px;
+    cursor: pointer;
+    color: #aaa;
+}
+
+.close-modal:hover {
+    color: var(--primary-color);
+}
+
+#modal-footer {
+    margin-top: 20px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+/* Footer */
+footer {
+    text-align: center;
+    padding: 20px 0;
+    margin-top: 40px;
+    border-top: 1px solid #ddd;
+    color: #7f8c8d;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    header .container {
+        flex-direction: column;
+        gap: 15px;
+    }
+    
+    .controls {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .match-details {
+        flex-direction: column;
+        gap: 20px;
+    }
+    
+    .vs {
+        padding: 10px;
+    }
+}
+
+/* Animations */
+.fade-in {
+    animation: fadeIn 0.5s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Tournament bracket lines */
+.connector {
+    position: absolute;
+    background-color: #ddd;
+}
+
+.connector.vertical {
+    width: 2px;
+}
+
+.connector.horizontal {
+    height: 2px;
+}
+
+/* Add this to the end of your CSS file */
+
+/* Scoreboard Styles */
+.scoreboard-container {
+    margin: 20px 0;
+    border: 1px solid #ddd;
+    border-radius: var(--border-radius);
+    padding: 15px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.scoreboard-table {
     width: 100%;
     border-collapse: collapse;
 }
 
-th, td {
-    padding: 12px 15px;
+.scoreboard-table th,
+.scoreboard-table td {
+    padding: 10px;
     text-align: left;
-    border-bottom: 1px solid #ddd;
+    border-bottom: 1px solid #eee;
 }
 
-th {
-    background-color: var(--secondary-color);
+.scoreboard-table th {
+    background-color: var(--primary-color);
     color: white;
 }
 
-tr:nth-child(even) {
-    background-color: #f2f2f2;
+.scoreboard-table tr:nth-child(even) {
+    background-color: rgba(236, 240, 241, 0.5);
 }
 
-tr:hover {
-    background-color: #e2e2e2;
+.scoreboard-table tr:hover {
+    background-color: rgba(52, 152, 219, 0.1);
 }
 
-/* Footer styles */
-footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-top: 40px;
-    padding-top: 20px;
-    border-top: 1px solid #ddd;
-}
-
-/* Responsive design */
-@media (max-width: 768px) {
-    .player-row {
-        flex-direction: column;
-        gap: 10px;
-    }
-    
-    .player-number {
-        flex: 0 0 auto;
-    }
-    
-    .matches-container {
-        grid-template-columns: 1fr;
-    }
-    
-    .tournament-header {
-        flex-direction: column;
-        gap: 15px;
-    }
-}
-
-
-/* Add these styles to your landing.css file */
-
-/* Verification styles */
-.verify-btn {
-    margin-left: 10px;
-    padding: 5px 10px;
-    font-size: 14px;
-}
-
-.verify-status {
-    margin-left: 10px;
-    font-size: 14px;
-}
-
-.verify-status.success {
+.score-win {
     color: var(--success-color);
+    font-weight: 600;
 }
 
-.verify-status.error {
+.score-loss {
     color: var(--accent-color);
 }
 
-.verify-status.pending {
-    color: var(--warning-color);
+.player-rank-1 {
+    background-color: rgba(241, 196, 15, 0.2);
+    font-weight: bold;
 }
 
-/* Problem info styles */
+.player-rank-2 {
+    background-color: rgba(189, 195, 199, 0.2);
+}
+
+.player-rank-3 {
+    background-color: rgba(190, 144, 99, 0.2);
+}
+
+/* End of scoreboard styles */
+
+
+
+/* Add these styles for the problem display */
+.match-problem {
+    margin-bottom: 20px;
+    padding: 15px;
+    background-color: #f8f9fa;
+    border-radius: var(--border-radius);
+    border: 1px solid #e5e7eb;
+}
+
 .problem-info {
-    text-align: center;
-    font-weight: bold;
-    margin-bottom: 15px;
-    padding: 8px;
-    background-color: #f4f4f4;
-    border-radius: var(--border-radius);
+    margin: 10px 0;
 }
 
-/* Submission status */
-.submission-status {
+.problem-title {
+    font-weight: 600;
+    margin-bottom: 5px;
+    color: var(--primary-color);
+}
+
+.problem-contest {
+    font-size: 0.9rem;
+    color: #6b7280;
+    margin-bottom: 10px;
+}
+
+#problem-link {
     margin-top: 10px;
-    font-size: 14px;
-    color: #666;
-}
-
-.player.solved .submission-status {
-    color: white;
-    font-weight: bold;
-}
-
-.player.winner {
-    border: 2px solid gold;
-}
-
-/* Loading message */
-.loading-message {
     text-align: center;
-    margin: 20px 0;
-    padding: 10px;
-    background-color: #f4f4f4;
-    border-radius: var(--border-radius);
+    display: inline-block;
 }
 
-/* Error styles */
-.match-card.error {
-    border-color: var(--accent-color);
-    background-color: #ffeeee;
+.loading-spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(0, 0, 0, 0.1);
+    border-radius: 50%;
+    border-top-color: var(--secondary-color);
+    animation: spin 1s linear infinite;
+    margin-right: 10px;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
 }
 
 .error-message {
     color: var(--accent-color);
-    padding: 10px;
-    margin: 10px 0;
-    text-align: center;
+    font-style: italic;
 }
 
 
-/* Add these styles to your landing.css file */
-.manual-win-btn {
-    background-color: #f39c12;
-    color: white;
-    border: none;
-    border-radius: 50%;
-    width: 24px;
-    height: 24px;
-    font-size: 16px;
-    line-height: 1;
-    cursor: pointer;
-    margin-left: 8px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    transition: background-color 0.2s;
+/* Add styles for the problem indicator in matches */
+.problem-indicator {
+    font-size: 0.8rem;
+    padding: 4px 8px;
+    background-color: #e9ecef;
+    border-top: 1px solid #ddd;
+    color: #495057;
 }
 
-.manual-win-btn:hover {
-    background-color: #e67e22;
+/* Style for AtCoder ID in player list */
+#players li small {
+    color: #6b7280;
+    margin-left: 5px;
 }
 
-.player-info {
+/* Add this to your input styles */
+.input-group {
     display: flex;
-    align-items: center;
+    gap: 5px;
 }
 
-/* Hide manual winner buttons for completed matches */
-.match-card.player1-won .manual-win-btn,
-.match-card.player2-won .manual-win-btn {
-    display: none;
+.input-group input {
+    flex-grow: 1;
 }
 
+.input-group input:first-child {
+    flex-basis: 60%;
+}
+
+.input-group input:nth-child(2) {
+    flex-basis: 40%;
+}
 

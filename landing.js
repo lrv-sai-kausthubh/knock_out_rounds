@@ -1,1250 +1,1340 @@
-// Global variables
-let players = [];
-let matches = [];
-let currentRound = 1;
-let totalRounds = 0;
-let refreshIntervalId = null;
-const REFRESH_INTERVAL = 30000; // 30 seconds
-const RATING_INCREMENT = 100;
-const ADMIN_PASSWORD = "knockout2025";
-let assignedProblems = new Set();
+// DOM Elements
+const elements = {
+    // Panels and containers
+    setupPanel: document.getElementById('setup-panel'),
+    tournamentView: document.getElementById('tournament-view'),
+    matchPanel: document.getElementById('match-panel'),
+    bracketContainer: document.getElementById('tournament-bracket'),
+    playersList: document.getElementById('players'),
+    
+    // Inputs and counters
+    tournamentNameInput: document.getElementById('tournament-name'),
+    playerInput: document.getElementById('player-input'),
+    playerCount: document.getElementById('player-count'),
+    tournamentTitle: document.getElementById('tournament-title'),
+    roundDisplay: document.getElementById('round-display'),
+    
+    // Buttons
+    addPlayerBtn: document.getElementById('add-player'),
+    startTournamentBtn: document.getElementById('start-tournament'),
+    newTournamentBtn: document.getElementById('new-tournament'),
+    saveTournamentBtn: document.getElementById('save-tournament'),
+    prevRoundBtn: document.getElementById('prev-round'),
+    nextRoundBtn: document.getElementById('next-round'),
+    closeMatchBtn: document.getElementById('close-match-panel'),
+    
+    // Match display
+    matchPlayer1: document.getElementById('match-player1'),
+    matchPlayer2: document.getElementById('match-player2'),
+    
+    // Modal elements
+    modal: document.getElementById('modal'),
+    modalTitle: document.getElementById('modal-title'),
+    modalBody: document.getElementById('modal-body'),
+    modalConfirm: document.getElementById('modal-confirm'),
+    modalCancel: document.getElementById('modal-cancel'),
+    closeModal: document.querySelector('.close-modal'),
 
-// Initialize the application
-document.addEventListener('DOMContentLoaded', function() {
-    // Set up event listeners
-    document.getElementById('generate-fields').addEventListener('click', generatePlayerFields);
-    document.getElementById('start-tournament').addEventListener('click', startTournament);
-    document.getElementById('next-round').addEventListener('click', startNextRound);
-    document.getElementById('toggle-leaderboard').addEventListener('click', toggleLeaderboard);
-    document.getElementById('show-tournament').addEventListener('click', showTournament);
-});
+    // Add these new elements
+    atcoderIdInput: document.getElementById('atcoder-id'),
+    problemContainer: document.getElementById('problem-container'),
+    problemLink: document.getElementById('problem-link'),
 
-// Generate player input fields based on the number specified
-function generatePlayerFields() {
-    const numPlayers = parseInt(document.getElementById('num-players').value);
+};
+
+// Update the tournament object to include maxRounds and playerScores
+const tournament = {
+    name: '',
+    players: [],
+    rounds: [],
+    currentRound: 0,
+    winners: [],
+    losers: [],
+    activeMatch: null,
+    maxRounds: 3, // Default to 3 rounds
+    playerScores: {}, // Will track wins/losses for each player
+    completed: false,
+    allProblems: [],
+};
+
+// Event Listeners
+function setupEventListeners() {
+    // Setup panel listeners
+    elements.addPlayerBtn.addEventListener('click', addPlayer);
+    elements.playerInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') addPlayer();
+    });
+    elements.startTournamentBtn.addEventListener('click', startTournament);
     
-    if (!numPlayers || numPlayers < 2 || numPlayers % 2 !== 0) {
-        alert('Please enter an even number of players (minimum 2)');
-        return;
-    }
+    // Tournament controls
+    elements.newTournamentBtn.addEventListener('click', confirmNewTournament);
+    elements.saveTournamentBtn.addEventListener('click', saveTournament);
+    elements.prevRoundBtn.addEventListener('click', showPreviousRound);
+    elements.nextRoundBtn.addEventListener('click', showNextRound);
+
+    // Add these elements to your elements object
+    // Add this to the elements object near the top of the file
+    elements.roundsInput = document.getElementById('rounds-input');
+    elements.scoreboardPanel = document.getElementById('scoreboard-panel');
+    elements.scoreboard = document.getElementById('scoreboard');
+    elements.returnToTournamentBtn = document.getElementById('return-to-tournament');
+    elements.newTournamentFromResultsBtn = document.getElementById('new-tournament-from-results');
+    elements.returnToTournamentBtn.addEventListener('click', hideScoreboard);
+    elements.newTournamentFromResultsBtn.addEventListener('click', confirmNewTournament);
+
+
     
-    const playerFieldsContainer = document.getElementById('player-fields');
-    playerFieldsContainer.innerHTML = '';
+    // Match panel
+    elements.closeMatchBtn.addEventListener('click', closeMatchPanel);
+    document.querySelectorAll('.win-btn').forEach(btn => {
+        btn.addEventListener('click', markWinner);
+    });
     
-    for (let i = 1; i <= numPlayers; i++) {
-        const playerRow = document.createElement('div');
-        playerRow.className = 'player-row';
-        
-        const playerNumber = document.createElement('div');
-        playerNumber.className = 'player-number';
-        playerNumber.textContent = `Player ${i}:`;
-        
-        const playerName = document.createElement('div');
-        playerName.className = 'player-name';
-        const nameInput = document.createElement('input');
-        nameInput.type = 'text';
-        nameInput.id = `player-name-${i}`;
-        nameInput.placeholder = 'Enter Player Name';
-        playerName.appendChild(nameInput);
-        
-        const playerIdContainer = document.createElement('div');
-        playerIdContainer.className = 'player-id';
-        const idInput = document.createElement('input');
-        idInput.type = 'text';
-        idInput.id = `player-id-${i}`;
-        idInput.placeholder = 'Enter AtCoder ID';
-        
-        const verifyButton = document.createElement('button');
-        verifyButton.className = 'verify-btn';
-        verifyButton.textContent = 'Verify';
-        verifyButton.setAttribute('data-player', i);
-        verifyButton.addEventListener('click', verifyAtCoderid);
-        
-        const verifyStatus = document.createElement('span');
-        verifyStatus.className = 'verify-status';
-        verifyStatus.id = `verify-status-${i}`;
-        
-        playerIdContainer.appendChild(idInput);
-        playerIdContainer.appendChild(verifyButton);
-        playerIdContainer.appendChild(verifyStatus);
-        
-        playerRow.appendChild(playerNumber);
-        playerRow.appendChild(playerName);
-        playerRow.appendChild(playerIdContainer);
-        
-        playerFieldsContainer.appendChild(playerRow);
-    }
+    // Modal
+    elements.closeModal.addEventListener('click', () => hideModal());
+    elements.modalCancel.addEventListener('click', () => hideModal());
     
-    document.getElementById('start-tournament').disabled = false;
+    // Allow removing players
+    elements.playersList.addEventListener('click', (e) => {
+        if (e.target.classList.contains('remove-player')) {
+            const playerItem = e.target.closest('li');
+            const playerIndex = Array.from(elements.playersList.children).indexOf(playerItem);
+            removePlayer(playerIndex);
+        }
+    });
 }
 
-// Verify if an AtCoder ID exists
-async function verifyAtCoderid(e) {
-    const playerNum = e.target.getAttribute('data-player');
-    const atcoderId = document.getElementById(`player-id-${playerNum}`).value.trim();
-    const statusElement = document.getElementById(`verify-status-${playerNum}`);
+// Player Management Functions
+// Update the addPlayer function to include AtCoder ID
+function addPlayer() {
+    const playerName = elements.playerInput.value.trim();
+    const atcoderId = elements.atcoderIdInput.value.trim();
     
-    if (!atcoderId) {
-        statusElement.textContent = 'Please enter an AtCoder ID';
-        statusElement.className = 'verify-status error';
+    if (playerName === '') {
+        showMessage('Please enter a player name', 'warning');
         return;
     }
     
-    // Show verification in progress
-    e.target.disabled = true;
-    statusElement.textContent = 'Verifying...';
-    statusElement.className = 'verify-status pending';
+    if (atcoderId === '') {
+        showMessage('Please enter an AtCoder ID', 'warning');
+        return;
+    }
     
+    // Check if player name already exists
+    if (tournament.players.some(p => p.name === playerName)) {
+        showMessage('This player is already in the tournament', 'warning');
+        return;
+    }
+    
+    // Add player with AtCoder ID and empty unsolved problems array
+    tournament.players.push({
+        name: playerName,
+        atcoderId: atcoderId,
+        unsolvedProblems: []
+    });
+    
+    updatePlayersList();
+    elements.playerInput.value = '';
+    elements.atcoderIdInput.value = '';
+    elements.playerInput.focus();
+}
+// function addPlayer() {
+//     const playerName = elements.playerInput.value.trim();
+    
+//     if (playerName === '') {
+//         showMessage('Please enter a player name', 'warning');
+//         return;
+//     }
+    
+//     if (tournament.players.includes(playerName)) {
+//         showMessage('This player is already in the tournament', 'warning');
+//         return;
+//     }
+    
+//     tournament.players.push(playerName);
+//     updatePlayersList();
+//     elements.playerInput.value = '';
+//     elements.playerInput.focus();
+// }
+
+function removePlayer(index) {
+    tournament.players.splice(index, 1);
+    updatePlayersList();
+}
+
+function updatePlayersList() {
+    elements.playersList.innerHTML = '';
+    tournament.players.forEach(player => {
+        const li = document.createElement('li');
+        li.innerHTML = `
+            <div>
+                <span>${player.name}</span>
+                <small>(${player.atcoderId})</small>
+            </div>
+            <span class="remove-player"><i class="fas fa-times"></i></span>
+        `;
+        elements.playersList.appendChild(li);
+    });
+    
+    elements.playerCount.textContent = `(${tournament.players.length})`;
+    
+    // Enable/disable start button based on player count
+    if (tournament.players.length < 2) {
+        elements.startTournamentBtn.disabled = true;
+        elements.startTournamentBtn.classList.add('disabled');
+    } else {
+        elements.startTournamentBtn.disabled = false;
+        elements.startTournamentBtn.classList.remove('disabled');
+    }
+}
+
+
+
+// Add a function to fetch all problems
+// Modified fetchAllProblems function to separate problems by difficulty
+async function fetchAllProblems() {
     try {
-        // Use the same API endpoint as in timepass.html
-        const response = await fetch(`https://kenkoooo.com/atcoder/atcoder-api/v3/user/submissions?user=${atcoderId}&from_second=0`);
-        
+        const response = await fetch('https://kenkoooo.com/atcoder/resources/merged-problems.json');
         if (!response.ok) {
-            throw new Error('Failed to verify user');
+            throw new Error('Failed to fetch problems from AtCoder API');
         }
         
-        const submissions = await response.json();
+        const allProblems = await response.json();
         
-        if (submissions.length === 0) {
-            statusElement.textContent = 'No submissions found';
-            statusElement.className = 'verify-status error';
-        } else {
-            statusElement.textContent = '✓ Valid';
-            statusElement.className = 'verify-status success';
-        }
+        // Categorize problems by difficulty
+        const problemsByDifficulty = {
+            a: [],
+            b: []
+        };
+        
+        allProblems.forEach(problem => {
+            const id = problem.id.toLowerCase();
+            if (id.startsWith('abc')) {
+                if (id.endsWith('_a')) {
+                    problemsByDifficulty.a.push(problem);
+                } else if (id.endsWith('_b')) {
+                    problemsByDifficulty.b.push(problem);
+                }
+            }
+        });
+        
+        return problemsByDifficulty;
     } catch (error) {
-        statusElement.textContent = 'Invalid ID';
-        statusElement.className = 'verify-status error';
-    } finally {
-        e.target.disabled = false;
+        console.error('Error fetching problems:', error);
+        showMessage('Failed to fetch problems. Please try again.', 'error');
+        return { a: [], b: [] };
+    }
+}
+// async function fetchAllProblems() {
+//     try {
+//         const response = await fetch('https://kenkoooo.com/atcoder/resources/merged-problems.json');
+//         if (!response.ok) {
+//             throw new Error('Failed to fetch problems from AtCoder API');
+//         }
+        
+//         const allProblems = await response.json();
+        
+//         // Filter to only include ABC A and B problems
+//         return allProblems.filter(problem => {
+//             const id = problem.id.toLowerCase();
+//             return id.startsWith('abc') && (id.endsWith('_a') || id.endsWith('_b'));
+//         });
+//     } catch (error) {
+//         console.error('Error fetching problems:', error);
+//         showMessage('Failed to fetch problems. Please try again.', 'error');
+//         return [];
+//     }
+// }
+
+// Add a function to fetch user's submissions
+async function fetchUserSubmissions(userId) {
+    try {
+        const response = await fetch(`https://kenkoooo.com/atcoder/atcoder-api/v3/user/submissions?user=${userId}&from_second=0`);
+        if (!response.ok) {
+            throw new Error(`Failed to fetch data for user: ${userId}`);
+        }
+        
+        return await response.json();
+    } catch (error) {
+        console.error(`Error fetching submissions for ${userId}:`, error);
+        return [];
     }
 }
 
-// Start the tournament with entered players
-async function startTournament() {
-    const numPlayers = parseInt(document.getElementById('num-players').value);
-    const numRounds = parseInt(document.getElementById('num-rounds').value);
-    players = [];
+// Add a function to get unsolved problems for a player
+async function getUnsolvedProblems(player, allProblems) {
+    // Fetch user submissions
+    const submissions = await fetchUserSubmissions(player.atcoderId);
     
-    // Reset assigned problems when starting a new tournament
-    assignedProblems = new Set();
-    
-    // Store tournament start time for accurate timing
-    window.tournamentStartTime = Math.floor(Date.now() / 1000);
-    
-    for (let i = 1; i <= numPlayers; i++) {
-        const nameInput = document.getElementById(`player-name-${i}`);
-        const idInput = document.getElementById(`player-id-${i}`);
-        
-        if (!nameInput.value || !idInput.value) {
-            alert('Please fill in all player information');
-            return;
+    // Get solved problems (unique problem IDs with AC status)
+    const solvedProblems = new Set();
+    submissions.forEach(sub => {
+        if (sub.result === "AC") {
+            solvedProblems.add(sub.problem_id);
         }
-        
-        players.push({
-            id: i,
-            name: nameInput.value,
-            atcoderId: idInput.value,
-            rating: 0,
-            wins: 0,
-            matches: 0
-        });
+    });
+    
+    // Return unsolved problems (ABC A and B only)
+    return allProblems.filter(problem => !solvedProblems.has(problem.id));
+}
+
+
+// function updatePlayersList() {
+//     elements.playersList.innerHTML = '';
+//     tournament.players.forEach(player => {
+//         const li = document.createElement('li');
+//         li.innerHTML = `
+//             <span>${player}</span>
+//             <span class="remove-player"><i class="fas fa-times"></i></span>
+//         `;
+//         elements.playersList.appendChild(li);
+//     });
+    
+//     elements.playerCount.textContent = `(${tournament.players.length})`;
+    
+//     // Enable/disable start button based on player count
+//     if (tournament.players.length < 2) {
+//         elements.startTournamentBtn.disabled = true;
+//         elements.startTournamentBtn.classList.add('disabled');
+//     } else {
+//         elements.startTournamentBtn.disabled = false;
+//         elements.startTournamentBtn.classList.remove('disabled');
+//     }
+// }
+
+// Tournament Management
+async function startTournament() {
+    const tournamentName = elements.tournamentNameInput.value.trim() || 'New Tournament';
+    
+    if (tournament.players.length < 2) {
+        showMessage('You need at least 2 players to start a tournament', 'warning');
+        return;
     }
     
-    // Use the specified number of rounds instead of calculating it
-    totalRounds = numRounds;
+    // Get the number of rounds
+    const maxRounds = parseInt(elements.roundsInput.value);
+    if (isNaN(maxRounds) || maxRounds < 1) {
+        showMessage('Please enter a valid number of rounds', 'warning');
+        return;
+    }
     
-    document.getElementById('setup-section').classList.remove('active');
-    document.getElementById('setup-section').classList.add('hidden');
-    document.getElementById('tournament-section').classList.remove('hidden');
-    document.getElementById('tournament-section').classList.add('active');
-    document.getElementById('current-round').textContent = currentRound;
-    
-    // Display loading message while setting up the tournament
-    const matchesContainer = document.getElementById('matches-container');
-    matchesContainer.innerHTML = '<div class="loading-message">Setting up matches...</div>';
+    // Show loading message
+    showMessage('Fetching problems from AtCoder...', 'info');
+    elements.startTournamentBtn.disabled = true;
+    elements.startTournamentBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
     
     try {
-        await createMatches();
-        displayMatches();
-        startAutoRefresh();
+        // Fetch all ABC A and B problems, categorized by difficulty
+        tournament.allProblems = await fetchAllProblems();
+        
+        if (tournament.allProblems.a.length === 0 || tournament.allProblems.b.length === 0) {
+            throw new Error('Failed to fetch problems from AtCoder');
+        }
+        
+        // Fetch unsolved problems for all players
+        for (const player of tournament.players) {
+            // Combine A and B problems for initial check
+            const allProblemsArray = [...tournament.allProblems.a, ...tournament.allProblems.b];
+            player.unsolvedProblems = await getUnsolvedProblems(player, allProblemsArray);
+        }
+        
+        // Setup tournament
+        tournament.name = tournamentName;
+        tournament.maxRounds = maxRounds;
+        tournament.completed = false;
+        elements.tournamentTitle.textContent = tournament.name;
+        
+        // Initialize player scores
+        tournament.playerScores = {};
+        tournament.players.forEach(player => {
+            tournament.playerScores[player.name] = {
+                wins: 0,
+                losses: 0,
+                score: 0
+            };
+        });
+        
+        // Shuffle players for random matching
+        shuffleArray(tournament.players);
+        
+        // Create first round
+        await createFirstRound();
+        
+        // Show tournament view
+        elements.setupPanel.classList.add('hidden');
+        elements.tournamentView.classList.remove('hidden');
+        elements.tournamentView.classList.add('fade-in');
+        
+        // Render the bracket
+        renderBracket();
+        
+        hideModal();
+        
     } catch (error) {
         console.error('Error starting tournament:', error);
-        matchesContainer.innerHTML = '<div class="error-message">Failed to set up matches. Please try again.</div>';
+        showMessage(`Error: ${error.message}`, 'error');
+    } finally {
+        // Reset button state
+        elements.startTournamentBtn.disabled = false;
+        elements.startTournamentBtn.innerHTML = '<i class="fas fa-play"></i> Start Tournament';
     }
 }
-// async function startTournament() {
-//     const numPlayers = parseInt(document.getElementById('num-players').value);
-//     players = [];
+
+
+
+// function startTournament() {
+//     const tournamentName = elements.tournamentNameInput.value.trim() || 'New Tournament';
     
-//     // Store tournament start time for accurate timing
-//     window.tournamentStartTime = Math.floor(Date.now() / 1000);
+//     if (tournament.players.length < 2) {
+//         showMessage('You need at least 2 players to start a tournament', 'warning');
+//         return;
+//     }
     
-//     for (let i = 1; i <= numPlayers; i++) {
-//         const nameInput = document.getElementById(`player-name-${i}`);
-//         const idInput = document.getElementById(`player-id-${i}`);
-        
-//         if (!nameInput.value || !idInput.value) {
-//             alert('Please fill in all player information');
-//             return;
-//         }
-        
-//         players.push({
-//             id: i,
-//             name: nameInput.value,
-//             atcoderId: idInput.value,
-//             rating: 0,
+//     // Get the number of rounds
+//     const maxRounds = parseInt(elements.roundsInput.value);
+//     if (isNaN(maxRounds) || maxRounds < 1) {
+//         showMessage('Please enter a valid number of rounds', 'warning');
+//         return;
+//     }
+    
+//     tournament.name = tournamentName;
+//     tournament.maxRounds = maxRounds;
+//     tournament.completed = false;
+//     elements.tournamentTitle.textContent = tournament.name;
+    
+//     // Initialize player scores
+//     tournament.playerScores = {};
+//     tournament.players.forEach(player => {
+//         tournament.playerScores[player] = {
 //             wins: 0,
-//             matches: 0
-//         });
-//     }
+//             losses: 0,
+//             score: 0 // Can be calculated as wins - losses
+//         };
+//     });
     
-//     totalRounds = Math.ceil(Math.log2(players.length));
+//     // Shuffle players for random matching
+//     shuffleArray(tournament.players);
     
-//     document.getElementById('setup-section').classList.remove('active');
-//     document.getElementById('setup-section').classList.add('hidden');
-//     document.getElementById('tournament-section').classList.remove('hidden');
-//     document.getElementById('tournament-section').classList.add('active');
-//     document.getElementById('current-round').textContent = currentRound;
+//     // Create first round
+//     createFirstRound();
     
-//     // Display loading message while setting up the tournament
-//     const matchesContainer = document.getElementById('matches-container');
-//     matchesContainer.innerHTML = '<div class="loading-message">Setting up matches...</div>';
+//     // Show tournament view
+//     elements.setupPanel.classList.add('hidden');
+//     elements.tournamentView.classList.remove('hidden');
+//     elements.tournamentView.classList.add('fade-in');
     
-//     try {
-//         await createMatches();
-//         displayMatches();
-//         startAutoRefresh();
-//     } catch (error) {
-//         console.error('Error starting tournament:', error);
-//         matchesContainer.innerHTML = '<div class="error-message">Failed to set up matches. Please try again.</div>';
-//     }
+//     // Render the tournament bracket
+//     renderBracket();
 // }
 
 
-// New function to get a problem that both users haven't solved yet
-// Then update the getUnsolvedProblem function to check this set
-async function getUnsolvedProblem(player1Id, player2Id, round, totalRounds) {
-    try {
-        // Fetch submissions for both players (keep existing code)
-        const player1Response = await fetch(`https://kenkoooo.com/atcoder/atcoder-api/v3/user/submissions?user=${player1Id}&from_second=0`);
-        const player2Response = await fetch(`https://kenkoooo.com/atcoder/atcoder-api/v3/user/submissions?user=${player2Id}&from_second=0`);
-        
-        if (!player1Response.ok || !player2Response.ok) {
-            throw new Error('Failed to fetch submissions');
-        }
-        
-        const player1Submissions = await player1Response.json();
-        const player2Submissions = await player2Response.json();
-        
-        // Get sets of solved problem IDs for both players
-        const player1Solved = new Set();
-        const player2Solved = new Set();
-        
-        player1Submissions.forEach(sub => {
-            if (sub.result === 'AC') {
-                player1Solved.add(sub.problem_id);
-            }
-        });
-        
-        player2Submissions.forEach(sub => {
-            if (sub.result === 'AC') {
-                player2Solved.add(sub.problem_id);
-            }
-        });
-        
-        // List of beginner contests (ABC series)
-        const beginnerContests = [];
-        // Generate contest IDs from abc001 to abc300 (covers most beginner contests)
-        for (let i = 1; i <= 300; i++) {
-            beginnerContests.push(`abc${i.toString().padStart(3, '0')}`);
-        }
-        
-        // Determine if we should use type A or B based on the round number
-        // Use A problems for the first half of the rounds (rounded up), and B problems for the rest
-        const useTypeA = round <= Math.ceil(totalRounds / 2);
-        
-        if (useTypeA) {
-            // Try category A problems
-            for (const contestId of beginnerContests) {
-                const problemId = `${contestId}_a`;
-                
-                // Check if problem is already assigned OR solved by either player
-                if (!assignedProblems.has(problemId) && 
-                    !player1Solved.has(problemId) && 
-                    !player2Solved.has(problemId)) {
-                    
-                    // Mark as assigned
-                    assignedProblems.add(problemId);
-                    
-                    return {
-                        id: problemId,
-                        url: `https://atcoder.jp/contests/${contestId}/tasks/${contestId}_1`,
-                        name: `${contestId.toUpperCase()} Problem A`
-                    };
-                }
-            }
-        } else {
-            // Try category B problems
-            for (const contestId of beginnerContests) {
-                const problemId = `${contestId}_b`;
-                
-                // Check if problem is already assigned OR solved by either player
-                if (!assignedProblems.has(problemId) && 
-                    !player1Solved.has(problemId) && 
-                    !player2Solved.has(problemId)) {
-                    
-                    // Mark as assigned
-                    assignedProblems.add(problemId);
-                    
-                    return {
-                        id: problemId,
-                        url: `https://atcoder.jp/contests/${contestId}/tasks/${contestId}_2`,
-                        name: `${contestId.toUpperCase()} Problem B`
-                    };
-                }
-            }
-        }
-        
-        // If we get here, we've exhausted the preferred type, try the other type
-        const problemType = useTypeA ? '_b' : '_a';
-        const urlSuffix = useTypeA ? '_2' : '_1';
-        const problemLabel = useTypeA ? 'B' : 'A';
-        
-        for (const contestId of beginnerContests) {
-            const problemId = `${contestId}${problemType}`;
-            
-            if (!assignedProblems.has(problemId) && 
-                !player1Solved.has(problemId) && 
-                !player2Solved.has(problemId)) {
-                
-                // Mark as assigned
-                assignedProblems.add(problemId);
-                
-                return {
-                    id: problemId,
-                    url: `https://atcoder.jp/contests/${contestId}/tasks/${contestId}${urlSuffix}`,
-                    name: `${contestId.toUpperCase()} Problem ${problemLabel}`
-                };
-            }
-        }
-        
-        // Extreme fallback - find any unused problem
-        for (const contestId of beginnerContests) {
-            for (const type of ['a', 'b']) {
-                const problemId = `${contestId}_${type}`;
-                const urlSuffix = type === 'a' ? '1' : '2';
-                const problemLabel = type === 'a' ? 'A' : 'B';
-                
-                if (!assignedProblems.has(problemId)) {
-                    assignedProblems.add(problemId);
-                    
-                    return {
-                        id: problemId,
-                        url: `https://atcoder.jp/contests/${contestId}/tasks/${contestId}_${urlSuffix}`,
-                        name: `${contestId.toUpperCase()} Problem ${problemLabel} (Fallback)`
-                    };
-                }
-            }
-        }
-        
-        // Ultimate fallback
-        return {
-            id: 'abc042_a',
-            url: 'https://atcoder.jp/contests/abc042/tasks/abc042_1',
-            name: 'ABC042 Problem A (Ultimate Fallback)'
-        };
-        
-    } catch (error) {
-        console.error('Error getting unsolved problem:', error);
-        return {
-            id: 'abc042_a',
-            url: 'https://atcoder.jp/contests/abc042/tasks/abc042_1',
-            name: 'ABC042 Problem A (Error Fallback)'
-        };
+// Update createFirstRound function to assign problems to matches
+async function createFirstRound() {
+    // Reset tournament state
+    tournament.rounds = [];
+    tournament.currentRound = 0;
+    tournament.winners = [];
+    tournament.losers = [];
+    
+    // Get appropriate difficulty for the first round
+    const difficulty = getProblemDifficultyForRound(0, tournament.maxRounds);
+    
+    // Create matches for the first round
+    const firstRound = [];
+    const players = [...tournament.players];
+    
+    // If odd number of players, one gets a bye
+    if (players.length % 2 !== 0) {
+        tournament.losers.push(null); // Add placeholder for tracking
+        const byePlayer = players.pop();
+        tournament.winners.push(byePlayer.name); // Last player gets a bye
     }
+    
+    // Create matches
+    while (players.length > 0) {
+        const player1 = players.pop();
+        const player2 = players.pop();
+        
+        // Find common unsolved problems of the appropriate difficulty
+        const commonUnsolved = findCommonUnsolvedProblems(player1, player2, difficulty);
+        
+        // Assign a random problem from common unsolved ones
+        let assignedProblem = null;
+        if (commonUnsolved.length > 0) {
+            assignedProblem = commonUnsolved[Math.floor(Math.random() * commonUnsolved.length)];
+        }
+        
+        firstRound.push({
+            player1: player1.name,
+            player2: player2.name,
+            player1Id: player1.atcoderId,
+            player2Id: player2.atcoderId,
+            winner: null,
+            loser: null,
+            completed: false,
+            problem: assignedProblem,
+            difficulty: difficulty // Store the difficulty level
+        });
+    }
+    
+    tournament.rounds.push(firstRound);
+    updateRoundDisplay();
 }
 
-// async function getUnsolvedProblem(player1Id, player2Id) {
-//     try {
-//         // Fetch submissions for both players
-//         const player1Response = await fetch(`https://kenkoooo.com/atcoder/atcoder-api/v3/user/submissions?user=${player1Id}&from_second=0`);
-//         const player2Response = await fetch(`https://kenkoooo.com/atcoder/atcoder-api/v3/user/submissions?user=${player2Id}&from_second=0`);
-        
-//         if (!player1Response.ok || !player2Response.ok) {
-//             throw new Error('Failed to fetch submissions');
-//         }
-        
-//         const player1Submissions = await player1Response.json();
-//         const player2Submissions = await player2Response.json();
-        
-//         // Get sets of solved problem IDs for both players
-//         const player1Solved = new Set();
-//         const player2Solved = new Set();
-        
-//         player1Submissions.forEach(sub => {
-//             if (sub.result === 'AC') {
-//                 player1Solved.add(sub.problem_id);
-//             }
-//         });
-        
-//         player2Submissions.forEach(sub => {
-//             if (sub.result === 'AC') {
-//                 player2Solved.add(sub.problem_id);
-//             }
-//         });
-        
-//         // List of beginner contests (ABC series)
-//         const beginnerContests = [];
-//         // Generate contest IDs from abc001 to abc300 (covers most beginner contests)
-//         for (let i = 1; i <= 300; i++) {
-//             beginnerContests.push(`abc${i.toString().padStart(3, '0')}`);
-//         }
-        
-//         // First try category A problems (which are _1 in URLs but _a in problem IDs)
-//         for (const contestId of beginnerContests) {
-//             const problemId = `${contestId}_a`;  // Keep this as _a for API matching
-            
-//             // If neither player has solved this problem, use it
-//             if (!player1Solved.has(problemId) && !player2Solved.has(problemId)) {
-//                 return {
-//                     id: problemId,  // Keep as _a for API comparison
-//                     url: `https://atcoder.jp/contests/${contestId}/tasks/${contestId}_1`,  // Use _1 in URL
-//                     name: `${contestId.toUpperCase()} Problem A`
-//                 };
-//             }
-//         }
-        
-//         // If no common unsolved A problems, try category B problems
-//         for (const contestId of beginnerContests) {
-//             const problemId = `${contestId}_b`;  // Keep this as _b for API matching
-            
-//             // If neither player has solved this problem, use it
-//             if (!player1Solved.has(problemId) && !player2Solved.has(problemId)) {
-//                 return {
-//                     id: problemId,  // Keep as _b for API comparison
-//                     url: `https://atcoder.jp/contests/${contestId}/tasks/${contestId}_2`,  // Use _2 in URL
-//                     name: `${contestId.toUpperCase()} Problem B`
-//                 };
-//             }
-//         }
-        
-//         // Fallback to a random beginner A problem if no common unsolved problems found
-//         const randomContestId = beginnerContests[Math.floor(Math.random() * beginnerContests.length)];
-//         return {
-//             id: `${randomContestId}_a`,  // Keep as _a for API comparison
-//             url: `https://atcoder.jp/contests/${randomContestId}/tasks/${randomContestId}_1`,  // Use _1 in URL
-//             name: `${randomContestId.toUpperCase()} Problem A (Fallback)`
-//         };
-        
-//     } catch (error) {
-//         console.error('Error getting unsolved problem:', error);
-//         // Fallback to a simple problem if there's an error
-//         return {
-//             id: 'abc042_a',  // Keep as _a for API comparison
-//             url: 'https://atcoder.jp/contests/abc042/tasks/abc042_1',  // Use _1 in URL
-//             name: 'ABC042 Problem A (Error Fallback)'
-//         };
-//     }
+
+// Function to find common unsolved problems between two players
+// Updated findCommonUnsolvedProblems to filter by difficulty
+function findCommonUnsolvedProblems(player1, player2, difficulty) {
+    // Filter the unsolved problems by the specified difficulty
+    const player1UnsolvedByDifficulty = player1.unsolvedProblems.filter(p => 
+        p.id.toLowerCase().endsWith(`_${difficulty}`)
+    );
+    
+    // Get problem IDs for easier comparison
+    const player1UnsolvedIds = new Set(player1UnsolvedByDifficulty.map(p => p.id));
+    
+    // Find problems that player2 hasn't solved with the required difficulty
+    return player2.unsolvedProblems.filter(p => 
+        player1UnsolvedIds.has(p.id) && 
+        p.id.toLowerCase().endsWith(`_${difficulty}`)
+    );
+}
+// function findCommonUnsolvedProblems(player1, player2) {
+//     // Get the problem IDs from player1's unsolved problems
+//     const player1UnsolvedIds = new Set(player1.unsolvedProblems.map(p => p.id));
+    
+//     // Find the intersection with player2's unsolved problems
+//     return player2.unsolvedProblems.filter(p => player1UnsolvedIds.has(p.id));
 // }
 
-
-
-// Create matches for the current round
-async function createMatches() {
-    matches = [];
+// function createFirstRound() {
+//     // Reset tournament state
+//     tournament.rounds = [];
+//     tournament.currentRound = 0;
+//     tournament.winners = [];
+//     tournament.losers = [];
     
-    // If this is the first round, randomly pair players
-    if (currentRound === 1) {
-        // Shuffle players for random pairing
-        const shuffledPlayers = [...players].sort(() => Math.random() - 0.5);
+//     // Create matches for the first round
+//     const firstRound = [];
+//     const players = [...tournament.players];
+    
+//     // If odd number of players, one gets a bye
+//     if (players.length % 2 !== 0) {
+//         tournament.losers.push(null); // Add placeholder for tracking
+//         tournament.winners.push(players.pop()); // Last player gets a bye
+//     }
+    
+//     // Create matches
+//     while (players.length > 0) {
+//         const player1 = players.pop();
+//         const player2 = players.pop();
         
-        // Create pairs and assign problems
-        for (let i = 0; i < shuffledPlayers.length; i += 2) {
-            if (i + 1 < shuffledPlayers.length) {
-                const loadingMatch = {
-                    id: matches.length + 1,
-                    player1: shuffledPlayers[i],
-                    player2: shuffledPlayers[i + 1],
-                    problem: { id: 'loading', name: 'Loading problem...', url: '#' },
-                    status: 'loading',
-                    winner: null,
-                    player1Solved: false,
-                    player2Solved: false,
-                    player1Time: null,
-                    player2Time: null
-                };
-                
-                matches.push(loadingMatch);
-            }
-        }
-        
-        displayMatches();
-        
-        // Now replace each loading match with actual problem
-        for (const match of matches) {
-            try {
-                // Pass current round and total rounds to the function
-                const problem = await getUnsolvedProblem(
-                    match.player1.atcoderId, 
-                    match.player2.atcoderId,
-                    currentRound,
-                    totalRounds
-                );
-                
-                match.problem = problem;
-                match.status = 'in_progress';
-                displayMatches();
-            } catch (error) {
-                console.error('Error assigning problem to match:', error);
-            }
-        }
-        
+//         firstRound.push({
+//             player1: player1,
+//             player2: player2,
+//             winner: null,
+//             loser: null,
+//             completed: false
+//         });
+//     }
+    
+//     tournament.rounds.push(firstRound);
+//     updateRoundDisplay();
+// }
+
+// Update createNextRound function to assign problems to new matches
+async function createNextRound() {
+    const currentRound = tournament.rounds[tournament.currentRound];
+    const completedMatches = currentRound.filter(match => match.completed);
+    
+    // Check if all matches are completed
+    if (completedMatches.length !== currentRound.length) {
+        showMessage('Complete all matches before advancing to the next round', 'warning');
+        return false;
+    }
+    
+    // Determine difficulty for the next round (current round + 1)
+    const nextRoundIndex = tournament.currentRound + 1;
+    const difficulty = getProblemDifficultyForRound(nextRoundIndex, tournament.maxRounds);
+    
+    // Create winner and loser brackets
+    const winnersRound = [];
+    const losersRound = [];
+    
+    // Handle winners bracket
+    const winners = [...tournament.winners];
+    
+    // If odd number of winners, one gets a bye
+    if (winners.length % 2 !== 0 && winners.length > 1) {
+        // Move the last winner to the next round directly
+        const byePlayer = winners.pop();
+        tournament.winners = [byePlayer];
     } else {
-        // Later rounds logic (similar update)
-        const roundWinners = players.filter(p => p.wins === currentRound - 1);
-        roundWinners.sort((a, b) => a.rating - b.rating);
+        tournament.winners = [];
+    }
+    
+    // Create winner matches
+    while (winners.length > 1) {
+        const player1Name = winners.pop();
+        const player2Name = winners.pop();
         
-        for (let i = 0; i < roundWinners.length; i += 2) {
-            if (i + 1 < roundWinners.length) {
-                const loadingMatch = {
-                    id: matches.length + 1,
-                    player1: roundWinners[i],
-                    player2: roundWinners[i + 1],
-                    problem: { id: 'loading', name: 'Loading problem...', url: '#' },
-                    status: 'loading',
-                    winner: null,
-                    player1Solved: false,
-                    player2Solved: false,
-                    player1Time: null,
-                    player2Time: null
-                };
-                
-                matches.push(loadingMatch);
-            }
+        // Find player objects
+        const player1 = tournament.players.find(p => p.name === player1Name);
+        const player2 = tournament.players.find(p => p.name === player2Name);
+        
+        // Find common unsolved problems with appropriate difficulty
+        const commonUnsolved = findCommonUnsolvedProblems(player1, player2, difficulty);
+        
+        // Assign a random problem from common unsolved ones
+        let assignedProblem = null;
+        if (commonUnsolved.length > 0) {
+            assignedProblem = commonUnsolved[Math.floor(Math.random() * commonUnsolved.length)];
         }
         
-        displayMatches();
+        winnersRound.push({
+            player1: player1Name,
+            player2: player2Name,
+            player1Id: player1.atcoderId,
+            player2Id: player2.atcoderId,
+            winner: null,
+            loser: null,
+            completed: false,
+            bracket: 'winners',
+            problem: assignedProblem,
+            difficulty: difficulty // Store the difficulty level
+        });
+    }
+    
+    // Handle losers bracket - same logic as above but for losers
+    const losers = [...tournament.losers].filter(player => player !== null);
+    
+    if (losers.length % 2 !== 0 && losers.length > 1) {
+        const byePlayer = losers.pop();
+        tournament.losers = [byePlayer];
+    } else {
+        tournament.losers = [];
+    }
+    
+    while (losers.length > 1) {
+        const player1Name = losers.pop();
+        const player2Name = losers.pop();
         
-        for (const match of matches) {
-            try {
-                // Pass current round and total rounds to the function
-                const problem = await getUnsolvedProblem(
-                    match.player1.atcoderId, 
-                    match.player2.atcoderId,
-                    currentRound,
-                    totalRounds
-                );
-                
-                match.problem = problem;
-                match.status = 'in_progress';
-                displayMatches();
-            } catch (error) {
-                console.error('Error assigning problem to match:', error);
-            }
+        const player1 = tournament.players.find(p => p.name === player1Name);
+        const player2 = tournament.players.find(p => p.name === player2Name);
+        
+        const commonUnsolved = findCommonUnsolvedProblems(player1, player2, difficulty);
+        
+        let assignedProblem = null;
+        if (commonUnsolved.length > 0) {
+            assignedProblem = commonUnsolved[Math.floor(Math.random() * commonUnsolved.length)];
+        }
+        
+        losersRound.push({
+            player1: player1Name,
+            player2: player2Name,
+            player1Id: player1.atcoderId,
+            player2Id: player2.atcoderId,
+            winner: null,
+            loser: null,
+            completed: false,
+            bracket: 'losers',
+            problem: assignedProblem,
+            difficulty: difficulty
+        });
+    }
+    
+    // Add new rounds to tournament
+    tournament.rounds.push([...winnersRound, ...losersRound]);
+    tournament.currentRound++;
+    updateRoundDisplay();
+    
+    return true;
+}
+
+// function createNextRound() {
+//     const currentRound = tournament.rounds[tournament.currentRound];
+//     const completedMatches = currentRound.filter(match => match.completed);
+    
+//     // Check if all matches are completed
+//     if (completedMatches.length !== currentRound.length) {
+//         showMessage('Complete all matches before advancing to the next round', 'warning');
+//         return false;
+//     }
+    
+//     // Create winner and loser brackets
+//     const winnersRound = [];
+//     const losersRound = [];
+    
+//     // Handle winners bracket
+//     const winners = [...tournament.winners];
+    
+//     // If odd number of winners, one gets a bye
+//     if (winners.length % 2 !== 0 && winners.length > 1) {
+//         // Move the last winner to the next round directly
+//         const byePlayer = winners.pop();
+//         tournament.winners = [byePlayer];
+//     } else {
+//         tournament.winners = [];
+//     }
+    
+//     // Create winner matches
+//     while (winners.length > 1) {
+//         const player1 = winners.pop();
+//         const player2 = winners.pop();
+        
+//         winnersRound.push({
+//             player1: player1,
+//             player2: player2,
+//             winner: null,
+//             loser: null,
+//             completed: false,
+//             bracket: 'winners'
+//         });
+//     }
+    
+//     // Handle losers bracket
+//     const losers = [...tournament.losers].filter(player => player !== null);
+    
+//     // If odd number of losers, one gets a bye
+//     if (losers.length % 2 !== 0 && losers.length > 1) {
+//         // Move the last loser to the next round directly
+//         const byePlayer = losers.pop();
+//         tournament.losers = [byePlayer];
+//     } else {
+//         tournament.losers = [];
+//     }
+    
+//     // Create loser matches
+//     while (losers.length > 1) {
+//         const player1 = losers.pop();
+//         const player2 = losers.pop();
+        
+//         losersRound.push({
+//             player1: player1,
+//             player2: player2,
+//             winner: null,
+//             loser: null,
+//             completed: false,
+//             bracket: 'losers'
+//         });
+//     }
+    
+//     // Add new rounds to tournament
+//     tournament.rounds.push([...winnersRound, ...losersRound]);
+//     tournament.currentRound++;
+//     updateRoundDisplay();
+    
+//     return true;
+// }
+
+function showPreviousRound() {
+    if (tournament.currentRound > 0) {
+        tournament.currentRound--;
+        updateRoundDisplay();
+        renderBracket();
+    }
+}
+
+function showNextRound() {
+    // If looking at the last round and we haven't reached the max rounds
+    if (tournament.currentRound === tournament.rounds.length - 1 && 
+        tournament.currentRound < tournament.maxRounds - 1) {
+        if (createNextRound()) {
+            renderBracket();
+        }
+    } else if (tournament.currentRound < tournament.rounds.length - 1) {
+        // Otherwise just navigate to the next existing round
+        tournament.currentRound++;
+        updateRoundDisplay();
+        renderBracket();
+    }
+}
+
+
+
+function updateRoundDisplay() {
+    elements.roundDisplay.textContent = `Round ${tournament.currentRound + 1} of ${tournament.maxRounds}`;
+    
+    // Update navigation buttons
+    elements.prevRoundBtn.disabled = tournament.currentRound === 0;
+    
+    if (tournament.currentRound === tournament.rounds.length - 1) {
+        // If we've reached max rounds or all final matches are completed
+        const finalRound = tournament.rounds[tournament.currentRound];
+        const completedFinals = finalRound.filter(match => match.completed);
+        
+        if (tournament.currentRound >= tournament.maxRounds - 1 || 
+            (finalRound.length === 1 && completedFinals.length === 1)) {
+            elements.nextRoundBtn.disabled = true;
+        } else {
+            elements.nextRoundBtn.disabled = false;
+        }
+    } else {
+        elements.nextRoundBtn.disabled = false;
+    }
+}
+
+
+
+// Bracket Rendering
+function renderBracket() {
+    elements.bracketContainer.innerHTML = '';
+    
+    const currentRoundMatches = tournament.rounds[tournament.currentRound];
+    const roundsContainer = document.createElement('div');
+    roundsContainer.className = 'rounds-container';
+    
+    // Determine if we have separate brackets
+    const winnerMatches = currentRoundMatches.filter(match => match.bracket !== 'losers');
+    const loserMatches = currentRoundMatches.filter(match => match.bracket === 'losers');
+    
+    // Render winner bracket if exists
+    if (winnerMatches.length > 0) {
+        const winnerRound = createRoundElement('Winners Bracket', winnerMatches);
+        roundsContainer.appendChild(winnerRound);
+    }
+
+    // Check if we've completed the final round of the tournament
+    if (tournament.completed && !elements.scoreboardPanel.classList.contains('fade-in')) {
+        showScoreboard();
+    }
+    
+    // Render loser bracket if exists
+    if (loserMatches.length > 0) {
+        const loserRound = createRoundElement('Losers Bracket', loserMatches);
+        roundsContainer.appendChild(loserRound);
+    }
+    
+    // If no separate brackets, render all matches
+    if (winnerMatches.length === 0 && loserMatches.length === 0) {
+        const round = createRoundElement(`Round ${tournament.currentRound + 1}`, currentRoundMatches);
+        roundsContainer.appendChild(round);
+    }
+    
+    elements.bracketContainer.appendChild(roundsContainer);
+    
+    // Check if we have a winner
+    if (tournament.currentRound === tournament.rounds.length - 1) {
+        const finalRound = tournament.rounds[tournament.currentRound];
+        
+        if (finalRound.length === 1 && finalRound[0].completed) {
+            const winner = finalRound[0].winner;
+            const message = document.createElement('div');
+            message.className = 'winner-announcement';
+            message.innerHTML = `
+                <h2>Tournament Champion!</h2>
+                <div class="winner-name">${winner}</div>
+                <p>Congratulations to our tournament winner!</p>
+            `;
+            elements.bracketContainer.appendChild(message);
         }
     }
 }
-// async function createMatches() {
-//     matches = [];
+
+function createRoundElement(title, matches) {
+    const round = document.createElement('div');
+    round.className = 'round';
     
-//     // If this is the first round, randomly pair players
-//     if (currentRound === 1) {
-//         // Shuffle players for random pairing
-//         const shuffledPlayers = [...players].sort(() => Math.random() - 0.5);
-        
-//         // Create pairs and assign problems (now async)
-//         for (let i = 0; i < shuffledPlayers.length; i += 2) {
-//             if (i + 1 < shuffledPlayers.length) {
-//                 // Show loading message while fetching problems
-//                 const loadingMatch = {
-//                     id: matches.length + 1,
-//                     player1: shuffledPlayers[i],
-//                     player2: shuffledPlayers[i + 1],
-//                     problem: { id: 'loading', name: 'Loading problem...', url: '#' },
-//                     status: 'loading',
-//                     winner: null,
-//                     player1Solved: false,
-//                     player2Solved: false,
-//                     player1Time: null,
-//                     player2Time: null
-//                 };
-                
-//                 matches.push(loadingMatch);
-//             }
-//         }
-        
-//         // Display initial matches with loading indicators
-//         displayMatches();
-        
-//         // Now replace each loading match with actual problem
-//         for (const match of matches) {
-//             try {
-//                 const problem = await getUnsolvedProblem(match.player1.atcoderId, match.player2.atcoderId);
-//                 match.problem = problem;
-//                 match.status = 'in_progress';
-//                 displayMatches(); // Update the display after each problem is fetched
-//             } catch (error) {
-//                 console.error('Error assigning problem to match:', error);
-//             }
-//         }
-        
-//     } else {
-//         // Later rounds logic (similar update)
-//         const roundWinners = players.filter(p => p.wins === currentRound - 1);
-//         roundWinners.sort((a, b) => a.rating - b.rating);
-        
-//         // Create pairs based on rating and assign problems (now async)
-//         for (let i = 0; i < roundWinners.length; i += 2) {
-//             if (i + 1 < roundWinners.length) {
-//                 // Show loading message while fetching problems
-//                 const loadingMatch = {
-//                     id: matches.length + 1,
-//                     player1: roundWinners[i],
-//                     player2: roundWinners[i + 1],
-//                     problem: { id: 'loading', name: 'Loading problem...', url: '#' },
-//                     status: 'loading',
-//                     winner: null,
-//                     player1Solved: false,
-//                     player2Solved: false,
-//                     player1Time: null,
-//                     player2Time: null
-//                 };
-                
-//                 matches.push(loadingMatch);
-//             }
-//         }
-        
-//         // Display initial matches with loading indicators
-//         displayMatches();
-        
-//         // Now replace each loading match with actual problem
-//         for (const match of matches) {
-//             try {
-//                 const problem = await getUnsolvedProblem(match.player1.atcoderId, match.player2.atcoderId);
-//                 match.problem = problem;
-//                 match.status = 'in_progress';
-//                 displayMatches(); // Update the display after each problem is fetched
-//             } catch (error) {
-//                 console.error('Error assigning problem to match:', error);
-//             }
-//         }
-//     }
-// }
-
-
-
-
-
-
-// Display matches in the UI
-function displayMatches() {
-    const matchesContainer = document.getElementById('matches-container');
-    matchesContainer.innerHTML = '';
+    const header = document.createElement('div');
+    header.className = 'round-header';
+    header.textContent = title;
+    round.appendChild(header);
     
     matches.forEach(match => {
-        const matchCard = document.createElement('div');
-        matchCard.className = 'match-card';
-        matchCard.id = `match-${match.id}`;
-        
-        if (match.status === 'completed') {
-            if (match.winner === match.player1.id) {
-                matchCard.classList.add('player1-won');
-            } else {
-                matchCard.classList.add('player2-won');
-            }
-        }
-        
-        // Match header
-        const matchHeader = document.createElement('div');
-        matchHeader.className = 'match-header';
-        matchHeader.textContent = `Match ${match.id}`;
-        
-        // Problem info
-        const problemInfo = document.createElement('div');
-        problemInfo.className = 'problem-info';
-        problemInfo.textContent = match.problem.name;
-        
-        // Player 1
-        const player1 = document.createElement('div');
-        player1.className = 'player';
-        player1.id = `player1-${match.id}`;
-        if (match.player1Solved) {
-            player1.classList.add('solved');
-            if (match.winner === match.player1.id) {
-                player1.classList.add('winner');
-            }
-        }
-        
-        const player1Info = document.createElement('div');
-        player1Info.className = 'player-info';
-        
-        const player1Name = document.createElement('span');
-        player1Name.className = 'player-name-display';
-        player1Name.textContent = match.player1.name;
-        
-        const player1Rating = document.createElement('span');
-        player1Rating.className = 'player-rating';
-        player1Rating.textContent = match.player1.rating;
-        
-        // Manual winner button for player 1
-        const manualWin1Button = document.createElement('button');
-        manualWin1Button.className = 'manual-win-btn';
-        manualWin1Button.textContent = '+';
-        manualWin1Button.title = 'Mark as winner (admin)';
-        manualWin1Button.onclick = () => promptManualWinner(match, match.player1);
-        
-        player1Info.appendChild(player1Name);
-        player1Info.appendChild(player1Rating);
-        player1Info.appendChild(manualWin1Button);
-        
-        const player1Status = document.createElement('div');
-        player1Status.className = 'submission-status';
-        player1Status.id = `player1-status-${match.id}`;
-        player1Status.textContent = match.player1Solved ? 
-            `Solved in ${formatTime(match.player1Time)}` : 'Not solved yet';
-        
-        player1.appendChild(player1Info);
-        player1.appendChild(player1Status);
-        
-        // Versus
-        const versus = document.createElement('div');
-        versus.className = 'versus';
-        versus.textContent = 'VS';
-        
-        // Player 2
-        const player2 = document.createElement('div');
-        player2.className = 'player';
-        player2.id = `player2-${match.id}`;
-        if (match.player2Solved) {
-            player2.classList.add('solved');
-            if (match.winner === match.player2.id) {
-                player2.classList.add('winner');
-            }
-        }
-        
-        const player2Info = document.createElement('div');
-        player2Info.className = 'player-info';
-        
-        const player2Name = document.createElement('span');
-        player2Name.className = 'player-name-display';
-        player2Name.textContent = match.player2.name;
-        
-        const player2Rating = document.createElement('span');
-        player2Rating.className = 'player-rating';
-        player2Rating.textContent = match.player2.rating;
-        
-        // Manual winner button for player 2
-        const manualWin2Button = document.createElement('button');
-        manualWin2Button.className = 'manual-win-btn';
-        manualWin2Button.textContent = '+';
-        manualWin2Button.title = 'Mark as winner (admin)';
-        manualWin2Button.onclick = () => promptManualWinner(match, match.player2);
-        
-        player2Info.appendChild(player2Name);
-        player2Info.appendChild(player2Rating);
-        player2Info.appendChild(manualWin2Button);
-        
-        const player2Status = document.createElement('div');
-        player2Status.className = 'submission-status';
-        player2Status.id = `player2-status-${match.id}`;
-        player2Status.textContent = match.player2Solved ? 
-            `Solved in ${formatTime(match.player2Time)}` : 'Not solved yet';
-        
-        player2.appendChild(player2Info);
-        player2.appendChild(player2Status);
-        
-        // Problem link
-        const problemLink = document.createElement('a');
-        problemLink.href = match.problem.url;
-        problemLink.className = 'problem-link';
-        problemLink.textContent = 'View Problem';
-        problemLink.target = '_blank';
-        
-        // Assemble match card
-        matchCard.appendChild(matchHeader);
-        matchCard.appendChild(problemInfo);
-        matchCard.appendChild(player1);
-        matchCard.appendChild(versus);
-        matchCard.appendChild(player2);
-        matchCard.appendChild(problemLink);
-        
-        matchesContainer.appendChild(matchCard);
+        const matchElement = createMatchElement(match);
+        round.appendChild(matchElement);
     });
+    
+    return round;
 }
 
-// Add this new function to handle manual winner declaration
-function promptManualWinner(match, player) {
-    // Don't allow manual winner for completed matches
-    if (match.status === 'completed') {
-        alert('This match is already completed.');
-        return;
+// Update createMatchElement function to show problem info in the bracket
+function createMatchElement(match) {
+    const matchElement = document.createElement('div');
+    matchElement.className = 'match';
+    
+    if (!match.player1 || !match.player2) {
+        matchElement.classList.add('match-pending');
     }
     
-    // Prompt for password
-    const passwordInput = prompt('Enter admin password to mark winner:');
+    // Player 1
+    const player1Element = document.createElement('div');
+    player1Element.className = 'match-player';
     
-    if (passwordInput === ADMIN_PASSWORD) {
-        // Set player as solved with current time
-        if (player.id === match.player1.id) {
-            match.player1Solved = true;
-            match.player1Time = Math.floor(Date.now() / 1000) - window.tournamentStartTime;
-        } else {
-            match.player2Solved = true;
-            match.player2Time = Math.floor(Date.now() / 1000) - window.tournamentStartTime;
-        }
+    if (match.winner === match.player1) {
+        player1Element.classList.add('winner');
+    } else if (match.completed) {
+        player1Element.classList.add('loser');
+    }
+    
+    player1Element.innerHTML = `
+        <span class="player-name">${match.player1 || 'TBD'}</span>
+    `;
+    
+    // Player 2
+    const player2Element = document.createElement('div');
+    player2Element.className = 'match-player';
+    
+    if (match.winner === match.player2) {
+        player2Element.classList.add('winner');
+    } else if (match.completed) {
+        player2Element.classList.add('loser');
+    }
+    
+    player2Element.innerHTML = `
+        <span class="player-name">${match.player2 || 'TBD'}</span>
+    `;
+    
+    // Add problem indicator if one exists
+    if (match.problem) {
+        const problemIndicator = document.createElement('div');
+        problemIndicator.className = 'problem-indicator';
+        const difficulty = match.problem.id.split('_').pop().toUpperCase();
+        problemIndicator.innerHTML = `
+            <small>Problem: ${match.problem.title} (Difficulty: ${difficulty})</small>
+        `;
         
-        // Declare as winner
-        declareWinner(match, player);
-        displayMatches();
-        checkRoundComplete();
-        
-        alert(`${player.name} has been manually declared the winner.`);
+        matchElement.appendChild(player1Element);
+        matchElement.appendChild(player2Element);
+        matchElement.appendChild(problemIndicator);
     } else {
-        alert('Invalid password. Action canceled.');
+        matchElement.appendChild(player1Element);
+        matchElement.appendChild(player2Element);
     }
+    
+    // Add click event to edit match
+    if (!match.completed && match.player1 && match.player2) {
+        matchElement.addEventListener('click', () => openMatchPanel(match));
+    }
+    
+    return matchElement;
 }
 
 
-// function displayMatches() {
-//     const matchesContainer = document.getElementById('matches-container');
-//     matchesContainer.innerHTML = '';
+// function createMatchElement(match) {
+//     const matchElement = document.createElement('div');
+//     matchElement.className = 'match';
     
-//     matches.forEach(match => {
-//         const matchCard = document.createElement('div');
-//         matchCard.className = 'match-card';
-//         matchCard.id = `match-${match.id}`;
-        
-//         if (match.status === 'completed') {
-//             if (match.winner === match.player1.id) {
-//                 matchCard.classList.add('player1-won');
-//             } else {
-//                 matchCard.classList.add('player2-won');
-//             }
-//         }
-        
-//         // Match header
-//         const matchHeader = document.createElement('div');
-//         matchHeader.className = 'match-header';
-//         matchHeader.textContent = `Match ${match.id}`;
-        
-//         // Problem info
-//         const problemInfo = document.createElement('div');
-//         problemInfo.className = 'problem-info';
-//         problemInfo.textContent = match.problem.name;
-        
-//         // Player 1
-//         const player1 = document.createElement('div');
-//         player1.className = 'player';
-//         player1.id = `player1-${match.id}`;
-//         if (match.player1Solved) {
-//             player1.classList.add('solved');
-//             if (match.winner === match.player1.id) {
-//                 player1.classList.add('winner');
-//             }
-//         }
-        
-//         const player1Info = document.createElement('div');
-//         player1Info.className = 'player-info';
-        
-//         const player1Name = document.createElement('span');
-//         player1Name.className = 'player-name-display';
-//         player1Name.textContent = match.player1.name;
-        
-//         const player1Rating = document.createElement('span');
-//         player1Rating.className = 'player-rating';
-//         player1Rating.textContent = match.player1.rating;
-        
-//         player1Info.appendChild(player1Name);
-//         player1Info.appendChild(player1Rating);
-        
-//         const player1Status = document.createElement('div');
-//         player1Status.className = 'submission-status';
-//         player1Status.id = `player1-status-${match.id}`;
-//         player1Status.textContent = match.player1Solved ? 
-//             `Solved in ${formatTime(match.player1Time)}` : 'Not solved yet';
-        
-//         player1.appendChild(player1Info);
-//         player1.appendChild(player1Status);
-        
-//         // Versus
-//         const versus = document.createElement('div');
-//         versus.className = 'versus';
-//         versus.textContent = 'VS';
-        
-//         // Player 2
-//         const player2 = document.createElement('div');
-//         player2.className = 'player';
-//         player2.id = `player2-${match.id}`;
-//         if (match.player2Solved) {
-//             player2.classList.add('solved');
-//             if (match.winner === match.player2.id) {
-//                 player2.classList.add('winner');
-//             }
-//         }
-        
-//         const player2Info = document.createElement('div');
-//         player2Info.className = 'player-info';
-        
-//         const player2Name = document.createElement('span');
-//         player2Name.className = 'player-name-display';
-//         player2Name.textContent = match.player2.name;
-        
-//         const player2Rating = document.createElement('span');
-//         player2Rating.className = 'player-rating';
-//         player2Rating.textContent = match.player2.rating;
-        
-//         player2Info.appendChild(player2Name);
-//         player2Info.appendChild(player2Rating);
-        
-//         const player2Status = document.createElement('div');
-//         player2Status.className = 'submission-status';
-//         player2Status.id = `player2-status-${match.id}`;
-//         player2Status.textContent = match.player2Solved ? 
-//             `Solved in ${formatTime(match.player2Time)}` : 'Not solved yet';
-        
-//         player2.appendChild(player2Info);
-//         player2.appendChild(player2Status);
-        
-//         // Problem link
-//         const problemLink = document.createElement('a');
-//         problemLink.href = match.problem.url;
-//         problemLink.className = 'problem-link';
-//         problemLink.textContent = 'View Problem';
-//         problemLink.target = '_blank';
-        
-//         // Assemble match card
-//         matchCard.appendChild(matchHeader);
-//         matchCard.appendChild(problemInfo);
-//         matchCard.appendChild(player1);
-//         matchCard.appendChild(versus);
-//         matchCard.appendChild(player2);
-//         matchCard.appendChild(problemLink);
-        
-//         matchesContainer.appendChild(matchCard);
-//     });
-// }
-
-
-
-
-
-// Format time in MM:SS
-function formatTime(seconds) {
-    if (!seconds) return '--:--';
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-}
-
-// Start automatically refreshing match status
-function startAutoRefresh() {
-    // Immediately check once
-    checkSubmissions();
-    
-    // Then set up interval
-    if (refreshIntervalId) {
-        clearInterval(refreshIntervalId);
-    }
-    
-    refreshIntervalId = setInterval(checkSubmissions, REFRESH_INTERVAL);
-    
-    // Add a refresh button to the tournament header
-    const roundInfo = document.querySelector('.round-info');
-    
-    // Only add if it doesn't exist yet
-    if (!document.getElementById('refresh-button')) {
-        const refreshButton = document.createElement('button');
-        refreshButton.id = 'refresh-button';
-        refreshButton.textContent = 'Refresh Now';
-        refreshButton.addEventListener('click', checkSubmissions);
-        roundInfo.appendChild(refreshButton);
-    }
-}
-
-// Stop the auto-refresh
-function stopAutoRefresh() {
-    if (refreshIntervalId) {
-        clearInterval(refreshIntervalId);
-        refreshIntervalId = null;
-    }
-}
-
-// Check for submissions from all players
-async function checkSubmissions() {
-    // Only check ongoing matches
-    const ongoingMatches = matches.filter(match => match.status === 'in_progress');
-    
-    if (ongoingMatches.length === 0) {
-        return;
-    }
-    
-    // Get all player IDs from ongoing matches
-    const playerIds = new Set();
-    ongoingMatches.forEach(match => {
-        playerIds.add(match.player1.atcoderId);
-        playerIds.add(match.player2.atcoderId);
-    });
-    
-    // Fetch submissions for all players
-    const submissionsPromises = Array.from(playerIds).map(async playerId => {
-        try {
-            const response = await fetch(`https://kenkoooo.com/atcoder/atcoder-api/v3/user/submissions?user=${playerId}&from_second=0`);
-            
-            if (!response.ok) {
-                console.error(`Failed to fetch submissions for ${playerId}`);
-                return { playerId, submissions: [] };
-            }
-            
-            const submissions = await response.json();
-            return { playerId, submissions };
-        } catch (error) {
-            console.error(`Error fetching submissions for ${playerId}:`, error);
-            return { playerId, submissions: [] };
-        }
-    });
-    
-    const submissionsResults = await Promise.all(submissionsPromises);
-    
-    // Create a map of player ID -> submissions
-    const submissionsMap = {};
-    submissionsResults.forEach(result => {
-        submissionsMap[result.playerId] = result.submissions;
-    });
-    
-    // Store the tournament start time (use actual start time or mock it)
-    const tournamentStartTime = window.tournamentStartTime || 
-        (Math.floor(Date.now() / 1000) - 3600); // Fallback to 1 hour ago
-    
-    // Check each match
-    let matchesUpdated = false;
-    
-    ongoingMatches.forEach(match => {
-        const player1Submissions = submissionsMap[match.player1.atcoderId] || [];
-        const player2Submissions = submissionsMap[match.player2.atcoderId] || [];
-        
-        // Check if player 1 solved the problem
-        const player1AcceptedSubmission = player1Submissions.find(sub => 
-            sub.problem_id === match.problem.id && 
-            sub.result === 'AC' &&
-            sub.epoch_second >= tournamentStartTime
-        );
-        
-        // Check if player 2 solved the problem
-        const player2AcceptedSubmission = player2Submissions.find(sub => 
-            sub.problem_id === match.problem.id && 
-            sub.result === 'AC' &&
-            sub.epoch_second >= tournamentStartTime
-        );
-        
-        // Update match status based on submissions
-        if (player1AcceptedSubmission && !match.player1Solved) {
-            match.player1Solved = true;
-            match.player1Time = player1AcceptedSubmission.epoch_second - tournamentStartTime;
-            matchesUpdated = true;
-        }
-        
-        if (player2AcceptedSubmission && !match.player2Solved) {
-            match.player2Solved = true;
-            match.player2Time = player2AcceptedSubmission.epoch_second - tournamentStartTime;
-            matchesUpdated = true;
-        }
-        
-        // Determine winner if both solved or one solved
-        if ((match.player1Solved || match.player2Solved) && match.status === 'in_progress') {
-            // If both solved, the fastest wins
-            if (match.player1Solved && match.player2Solved) {
-                if (match.player1Time < match.player2Time) {
-                    declareWinner(match, match.player1);
-                } else {
-                    declareWinner(match, match.player2);
-                }
-                matchesUpdated = true;
-            }
-            // If only one solved and it's been a while, they win automatically
-            // (optional: add time threshold for auto-win)
-        }
-    });
-    
-    // Update UI if matches were updated
-    if (matchesUpdated) {
-        displayMatches();
-        checkRoundComplete();
-    }
-}
-
-// Declare a winner for a match
-function declareWinner(match, winner) {
-    match.status = 'completed';
-    match.winner = winner.id;
-    
-    // Update player stats
-    const winnerPlayer = players.find(p => p.id === winner.id);
-    if (winnerPlayer) {
-        winnerPlayer.wins++;
-        winnerPlayer.rating += RATING_INCREMENT;
-    }
-    
-    // Update matches played for both players
-    const player1 = players.find(p => p.id === match.player1.id);
-    const player2 = players.find(p => p.id === match.player2.id);
-    
-    if (player1) player1.matches++;
-    if (player2) player2.matches++;
-    
-    // Update the match object with the latest player data
-    match.player1 = player1;
-    match.player2 = player2;
-}
-
-// Check if the current round is complete
-function checkRoundComplete() {
-    const allMatchesComplete = matches.every(match => match.status === 'completed');
-    
-    if (allMatchesComplete) {
-        document.getElementById('next-round').disabled = false;
-        
-        // If it's the final round, we have a tournament winner
-        if (currentRound === totalRounds) {
-            const winners = players.filter(p => p.wins === currentRound);
-            let winnerMessage = 'Tournament complete! ';
-            
-            if (winners.length === 1) {
-                winnerMessage += `The winner is ${winners[0].name}!`;
-            } else {
-                winnerMessage += `The winners are: ${winners.map(w => w.name).join(', ')}`;
-            }
-            
-            alert(winnerMessage);
-        }
-    }
-}
-// function checkRoundComplete() {
-//     const allMatchesComplete = matches.every(match => match.status === 'completed');
-    
-//     if (allMatchesComplete) {
-//         document.getElementById('next-round').disabled = false;
-        
-//         // If it's the final round, we have a tournament winner
-//         if (currentRound === totalRounds) {
-//             const finalMatch = matches[0];
-//             const winnerId = finalMatch.winner;
-//             const winner = players.find(p => p.id === winnerId);
-            
-//             alert(`Tournament complete! The winner is ${winner.name}!`);
-//         }
+//     if (!match.player1 || !match.player2) {
+//         matchElement.classList.add('match-pending');
 //     }
+    
+//     // Player 1
+//     const player1Element = document.createElement('div');
+//     player1Element.className = 'match-player';
+    
+//     if (match.winner === match.player1) {
+//         player1Element.classList.add('winner');
+//     } else if (match.completed) {
+//         player1Element.classList.add('loser');
+//     }
+    
+//     player1Element.innerHTML = `
+//         <span class="player-name">${match.player1 || 'TBD'}</span>
+//     `;
+    
+//     // Player 2
+//     const player2Element = document.createElement('div');
+//     player2Element.className = 'match-player';
+    
+//     if (match.winner === match.player2) {
+//         player2Element.classList.add('winner');
+//     } else if (match.completed) {
+//         player2Element.classList.add('loser');
+//     }
+    
+//     player2Element.innerHTML = `
+//         <span class="player-name">${match.player2 || 'TBD'}</span>
+//     `;
+    
+//     matchElement.appendChild(player1Element);
+//     matchElement.appendChild(player2Element);
+    
+//     // Add click event to edit match
+//     if (!match.completed && match.player1 && match.player2) {
+//         matchElement.addEventListener('click', () => openMatchPanel(match));
+//     }
+    
+//     return matchElement;
 // }
 
-// Update startNextRound for async operation
-async function startNextRound() {
-    currentRound++;
-    document.getElementById('current-round').textContent = currentRound;
-    document.getElementById('next-round').disabled = true;
+
+
+// Helper function to determine problem difficulty based on tournament progress
+function getProblemDifficultyForRound(currentRound, maxRounds) {
+    // For 3-round tournament: rounds 1-2 use difficulty A, round 3 uses difficulty B
+    // For 4+ round tournament: rounds 1-2 use difficulty A, rounds 3+ use difficulty B
     
-    // Display loading message
-    const matchesContainer = document.getElementById('matches-container');
-    matchesContainer.innerHTML = '<div class="loading-message">Setting up next round...</div>';
+    // If tournament is 3 rounds, only the final round uses difficulty B
+    if (maxRounds === 3) {
+        return currentRound < 2 ? 'a' : 'b';
+    } 
+    // If tournament is 4+ rounds, first half uses A, second half uses B
+    else {
+        return currentRound < 2 ? 'a' : 'b';
+    }
+}
+
+
+
+
+
+// Match Management
+// Update openMatchPanel function to show the assigned problem
+function openMatchPanel(match) {
+    tournament.activeMatch = match;
+    
+    elements.matchPlayer1.querySelector('h3').textContent = match.player1;
+    elements.matchPlayer2.querySelector('h3').textContent = match.player2;
+    
+    // Display problem information
+    if (match.problem) {
+        const difficulty = match.problem.id.split('_').pop().toUpperCase();
+        elements.problemContainer.innerHTML = `
+            <div class="problem-title">${match.problem.title}</div>
+            <div class="problem-contest">Contest: ${match.problem.contest_id.toUpperCase()}</div>
+            <div>Difficulty: ${difficulty}</div>
+        `;
+        
+        // Set problem link
+        elements.problemLink.href = `https://atcoder.jp/contests/${match.problem.contest_id}/tasks/${match.problem.id}`;
+        elements.problemLink.style.display = 'inline-block';
+    } else {
+        elements.problemContainer.innerHTML = `
+            <div class="error-message">
+                No common unsolved problems found for these players.
+                Please manually assign a problem.
+            </div>
+        `;
+        elements.problemLink.style.display = 'none';
+    }
+    
+    elements.matchPanel.classList.remove('hidden');
+    elements.matchPanel.classList.add('fade-in');
+}
+
+
+
+
+// function openMatchPanel(match) {
+//     tournament.activeMatch = match;
+    
+//     elements.matchPlayer1.querySelector('h3').textContent = match.player1;
+//     elements.matchPlayer2.querySelector('h3').textContent = match.player2;
+    
+//     elements.matchPanel.classList.remove('hidden');
+//     elements.matchPanel.classList.add('fade-in');
+// }
+
+function closeMatchPanel() {
+    elements.matchPanel.classList.add('hidden');
+    tournament.activeMatch = null;
+}
+
+
+
+// function markWinner(e) {
+//     const winnerNum = e.target.getAttribute('data-player');
+//     const match = tournament.activeMatch;
+    
+//     if (!match) return;
+    
+//     const winner = winnerNum === '1' ? match.player1 : match.player2;
+//     const loser = winnerNum === '1' ? match.player2 : match.player1;
+    
+//     match.winner = winner;
+//     match.loser = loser;
+//     match.completed = true;
+    
+//     // Update player scores
+//     if (tournament.playerScores[winner]) {
+//         tournament.playerScores[winner].wins += 1;
+//         tournament.playerScores[winner].score += 1; // Add 1 point for a win
+//     }
+    
+//     if (tournament.playerScores[loser]) {
+//         tournament.playerScores[loser].losses += 1;
+//         tournament.playerScores[loser].score -= 0; // No point deduction for a loss
+//     }
+    
+//     // Add to winners and losers for next round
+//     tournament.winners.push(winner);
+//     tournament.losers.push(loser);
+    
+//     closeMatchPanel();
+//     renderBracket();
+    
+//     // Check if this was the last match of the max round
+//     checkTournamentCompletion();
+// }
+
+
+// Update markWinner to check if the match actually has both players
+function markWinner(e) {
+    const winnerNum = e.target.getAttribute('data-player');
+    const match = tournament.activeMatch;
+    
+    if (!match) return;
+    
+    const winner = winnerNum === '1' ? match.player1 : match.player2;
+    const loser = winnerNum === '1' ? match.player2 : match.player1;
+    
+    match.winner = winner;
+    match.loser = loser;
+    match.completed = true;
+    
+    // Update player scores
+    if (tournament.playerScores[winner]) {
+        tournament.playerScores[winner].wins += 1;
+        tournament.playerScores[winner].score += 1;
+    }
+    
+    if (tournament.playerScores[loser]) {
+        tournament.playerScores[loser].losses += 1;
+    }
+    
+    // Add to winners and losers for next round
+    tournament.winners.push(winner);
+    tournament.losers.push(loser);
+    
+    closeMatchPanel();
+    renderBracket();
+    
+    // Check if this was the last match of the max round
+    checkTournamentCompletion();
+}
+
+
+
+
+
+// Add a function to check if the tournament is complete
+function checkTournamentCompletion() {
+    // If we've completed the max number of rounds
+    if (tournament.currentRound >= tournament.maxRounds - 1) {
+        const currentRound = tournament.rounds[tournament.currentRound];
+        const allCompleted = currentRound.every(match => match.completed);
+        
+        if (allCompleted) {
+            tournament.completed = true;
+            setTimeout(() => {
+                showScoreboard();
+            }, 500); // Small delay for better UX
+        }
+    }
+}
+
+// Add function to show the scoreboard
+function showScoreboard() {
+    // Generate the scoreboard HTML
+    const scoreboardHTML = generateScoreboardHTML();
+    elements.scoreboard.innerHTML = scoreboardHTML;
+    
+    // Hide tournament view and show scoreboard
+    elements.tournamentView.classList.add('hidden');
+    elements.scoreboardPanel.classList.remove('hidden');
+    elements.scoreboardPanel.classList.add('fade-in');
+}
+
+function hideScoreboard() {
+    elements.scoreboardPanel.classList.add('hidden');
+    elements.tournamentView.classList.remove('hidden');
+}
+
+// Generate the HTML for the scoreboard
+function generateScoreboardHTML() {
+    // Convert player scores to an array for sorting
+    const playerScores = Object.entries(tournament.playerScores).map(([name, stats]) => ({
+        name,
+        ...stats
+    }));
+    
+    // Sort by score (descending)
+    playerScores.sort((a, b) => b.score - a.score);
+    
+    // Create the table HTML
+    let html = `
+        <table class="scoreboard-table">
+            <thead>
+                <tr>
+                    <th>Rank</th>
+                    <th>Player</th>
+                    <th>Wins</th>
+                    <th>Losses</th>
+                    <th>Score</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+    
+    // Add each player row
+    playerScores.forEach((player, index) => {
+        const rankClass = index < 3 ? ` class="player-rank-${index + 1}"` : '';
+        
+        html += `
+            <tr${rankClass}>
+                <td>${index + 1}</td>
+                <td>${player.name}</td>
+                <td class="score-win">${player.wins}</td>
+                <td class="score-loss">${player.losses}</td>
+                <td>${player.score}</td>
+            </tr>
+        `;
+    });
+    
+    html += `
+            </tbody>
+        </table>
+    `;
+    
+    return html;
+}
+
+
+
+// Helper Functions
+function shuffleArray(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+    }
+}
+
+function showMessage(message, type = 'info') {
+    elements.modalTitle.textContent = type.charAt(0).toUpperCase() + type.slice(1);
+    elements.modalBody.textContent = message;
+    
+    // Hide cancel button for info/warning messages
+    if (type === 'info' || type === 'warning') {
+        elements.modalCancel.classList.add('hidden');
+    } else {
+        elements.modalCancel.classList.remove('hidden');
+    }
+    
+    elements.modal.classList.remove('hidden');
+}
+
+function hideModal() {
+    elements.modal.classList.add('hidden');
+}
+
+function confirmNewTournament() {
+    showMessage('Start a new tournament? All current progress will be lost.', 'confirm');
+    
+    elements.modalConfirm.addEventListener('click', function newTournamentHandler() {
+        resetTournament();
+        hideModal();
+        elements.modalConfirm.removeEventListener('click', newTournamentHandler);
+    }, { once: true });
+}
+
+// Update resetTournament to also reset the new properties
+// Update resetTournament function to reset player data structure
+function resetTournament() {
+    // Reset tournament state
+    tournament.name = '';
+    tournament.players = [];
+    tournament.rounds = [];
+    tournament.currentRound = 0;
+    tournament.winners = [];
+    tournament.losers = [];
+    tournament.activeMatch = null;
+    tournament.maxRounds = 3;
+    tournament.playerScores = {};
+    tournament.completed = false;
+    tournament.allProblems = [];
+    
+    // Reset UI
+    elements.tournamentView.classList.add('hidden');
+    elements.matchPanel.classList.add('hidden');
+    elements.scoreboardPanel.classList.add('hidden');
+    elements.setupPanel.classList.remove('hidden');
+    elements.tournamentNameInput.value = '';
+    elements.playerInput.value = '';
+    elements.atcoderIdInput.value = '';
+    elements.roundsInput.value = '3';
+    updatePlayersList();
+}
+
+// function resetTournament() {
+//     // Reset tournament state
+//     tournament.name = '';
+//     tournament.players = [];
+//     tournament.rounds = [];
+//     tournament.currentRound = 0;
+//     tournament.winners = [];
+//     tournament.losers = [];
+//     tournament.activeMatch = null;
+//     tournament.maxRounds = 3; // Reset to default
+//     tournament.playerScores = {};
+//     tournament.completed = false;
+    
+//     // Reset UI
+//     elements.tournamentView.classList.add('hidden');
+//     elements.matchPanel.classList.add('hidden');
+//     elements.scoreboardPanel.classList.add('hidden');
+//     elements.setupPanel.classList.remove('hidden');
+//     elements.tournamentNameInput.value = '';
+//     elements.playerInput.value = '';
+//     elements.roundsInput.value = '3'; // Reset to default
+//     updatePlayersList();
+// }
+
+function saveTournament() {
+    const tournamentData = JSON.stringify(tournament);
     
     try {
-        await createMatches();
-        displayMatches();
+        localStorage.setItem('knockout-tournament', tournamentData);
+        showMessage('Tournament saved successfully!', 'info');
+    } catch (e) {
+        showMessage('Failed to save tournament', 'warning');
+        console.error('Save error:', e);
+    }
+}
+
+function loadSavedTournament() {
+    try {
+        const savedData = localStorage.getItem('knockout-tournament');
         
-        // If no matches were created (odd number of winners), the tournament is over
-        if (matches.length === 0) {
-            alert('Tournament complete!');
-            showLeaderboard();
+        if (savedData) {
+            const savedTournament = JSON.parse(savedData);
+            
+            // Confirm before loading
+            showMessage('Load saved tournament?', 'confirm');
+            
+            elements.modalConfirm.addEventListener('click', function loadHandler() {
+                // Copy saved data to tournament state
+                Object.assign(tournament, savedTournament);
+                
+                // Update UI
+                elements.tournamentNameInput.value = tournament.name;
+                elements.tournamentTitle.textContent = tournament.name;
+                updatePlayersList();
+                updateRoundDisplay();
+                
+                // Show tournament view if rounds exist
+                if (tournament.rounds.length > 0) {
+                    elements.setupPanel.classList.add('hidden');
+                    elements.tournamentView.classList.remove('hidden');
+                    renderBracket();
+                }
+                
+                hideModal();
+                elements.modalConfirm.removeEventListener('click', loadHandler);
+            }, { once: true });
         }
-    } catch (error) {
-        console.error('Error starting next round:', error);
-        matchesContainer.innerHTML = '<div class="error-message">Failed to set up next round. Please try again.</div>';
+    } catch (e) {
+        console.error('Load error:', e);
     }
 }
 
-
-// Toggle between tournament and leaderboard views
-function toggleLeaderboard() {
-    const tournamentSection = document.getElementById('tournament-section');
-    const leaderboardSection = document.getElementById('leaderboard-section');
-    const toggleButton = document.getElementById('toggle-leaderboard');
+// Initialize
+document.addEventListener('DOMContentLoaded', () => {
+    setupEventListeners();
+    updatePlayersList();
     
-    if (leaderboardSection.classList.contains('hidden')) {
-        // Show leaderboard
-        tournamentSection.classList.add('hidden');
-        tournamentSection.classList.remove('active');
-        leaderboardSection.classList.add('active');
-        leaderboardSection.classList.remove('hidden');
-        toggleButton.textContent = 'Show Tournament';
-        updateLeaderboard();
-    } else {
-        showTournament();
+    // Check for saved tournament
+    if (localStorage.getItem('knockout-tournament')) {
+        loadSavedTournament();
     }
-}
-
-// Show the tournament view
-function showTournament() {
-    const tournamentSection = document.getElementById('tournament-section');
-    const leaderboardSection = document.getElementById('leaderboard-section');
-    const toggleButton = document.getElementById('toggle-leaderboard');
-    
-    tournamentSection.classList.add('active');
-    tournamentSection.classList.remove('hidden');
-    leaderboardSection.classList.add('hidden');
-    leaderboardSection.classList.remove('active');
-    toggleButton.textContent = 'Show Leaderboard';
-}
-
-// Update the leaderboard with current player stats
-function updateLeaderboard() {
-    const leaderboardBody = document.getElementById('leaderboard-body');
-    leaderboardBody.innerHTML = '';
-    
-    // Sort players by rating (descending)
-    const sortedPlayers = [...players].sort((a, b) => b.rating - a.rating);
-    
-    sortedPlayers.forEach((player, index) => {
-        const row = document.createElement('tr');
-        
-        const rankCell = document.createElement('td');
-        rankCell.textContent = index + 1;
-        
-        const nameCell = document.createElement('td');
-        nameCell.textContent = player.name;
-        
-        const idCell = document.createElement('td');
-        idCell.textContent = player.atcoderId;
-        
-        const ratingCell = document.createElement('td');
-        ratingCell.textContent = player.rating;
-        
-        const winsCell = document.createElement('td');
-        winsCell.textContent = player.wins;
-        
-        const matchesCell = document.createElement('td');
-        matchesCell.textContent = player.matches;
-        
-        row.appendChild(rankCell);
-        row.appendChild(nameCell);
-        row.appendChild(idCell);
-        row.appendChild(ratingCell);
-        row.appendChild(winsCell);
-        row.appendChild(matchesCell);
-        
-        leaderboardBody.appendChild(row);
-    });
-}
-
-// Show leaderboard directly
-function showLeaderboard() {
-    const tournamentSection = document.getElementById('tournament-section');
-    const leaderboardSection = document.getElementById('leaderboard-section');
-    const toggleButton = document.getElementById('toggle-leaderboard');
-    
-    tournamentSection.classList.add('hidden');
-    tournamentSection.classList.remove('active');
-    leaderboardSection.classList.add('active');
-    leaderboardSection.classList.remove('hidden');
-    toggleButton.textContent = 'Show Tournament';
-    
-    updateLeaderboard();
-}
+});
